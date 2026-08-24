@@ -3,503 +3,507 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>🔒 P2P Encrypted Chat</title>
+  <title>[ P2P-E2EE ]</title>
   <style>
-    :root {
-      --bg-primary: #0f0f13;
-      --bg-secondary: #1a1a24;
-      --bg-tertiary: #24243a;
-      --bg-input: #2a2a3e;
-      --text-primary: #e8e8f0;
-      --text-secondary: #9898b0;
-      --text-muted: #5e5e78;
-      --accent: #6c5ce7;
-      --accent-hover: #7f71ed;
-      --accent-glow: rgba(108, 92, 231, 0.3);
-      --success: #00b894;
-      --success-bg: rgba(0, 184, 148, 0.12);
-      --warning: #fdcb6e;
-      --warning-bg: rgba(253, 203, 110, 0.12);
-      --danger: #e17055;
-      --danger-bg: rgba(225, 112, 85, 0.12);
-      --msg-local: #2d2654;
-      --msg-remote: #1e2a3a;
-      --border: #2a2a40;
-      --radius: 12px;
-      --radius-sm: 8px;
-      --shadow: 0 4px 24px rgba(0,0,0,0.4);
-    }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    :root {
+      --bg: #0a0a0a;
+      --bg2: #0f0f0f;
+      --bg3: #161616;
+      --border: #1e1e1e;
+      --text: #a0a0a0;
+      --text-dim: #555;
+      --green: #00ff41;
+      --green-dim: #0a5f1a;
+      --amber: #ff8800;
+      --red: #ff2a2a;
+      --cyan: #00c8c8;
+      --mono: 'Courier New', 'Fira Code', 'Consolas', 'Liberation Mono', monospace;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
+      font-size: 13px;
     }
 
-    /* ── Header ── */
-    .header {
-      background: var(--bg-secondary);
+    /* ── HEADER ── */
+    .hdr {
+      background: var(--bg2);
       border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
+      padding: 8px 12px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       position: sticky;
       top: 0;
       z-index: 10;
     }
-    .header-icon { font-size: 24px; }
-    .header-info { flex: 1; }
-    .header-title { font-size: 16px; font-weight: 600; }
-    .header-status {
-      font-size: 12px;
-      color: var(--text-secondary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--text-muted);
-      transition: background 0.3s;
-    }
-    .status-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
-    .status-dot.connecting { background: var(--warning); animation: pulse 1.5s infinite; }
-    .status-dot.encrypted { background: #00ff88; box-shadow: 0 0 10px rgba(0,255,136,0.5); }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* ── Screens ── */
-    .screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
-    .screen.active { display: flex; }
-
-    /* ── Setup Screen ── */
-    .setup-screen {
-      padding: 20px 16px;
-      overflow-y: auto;
-      gap: 16px;
-    }
-    .setup-card {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-    }
-    .setup-card h2 {
-      font-size: 18px;
-      margin-bottom: 6px;
-    }
-    .setup-card p {
+    .hdr-title {
+      color: var(--green);
+      font-weight: bold;
       font-size: 13px;
-      color: var(--text-secondary);
-      margin-bottom: 16px;
-      line-height: 1.5;
+      flex: 1;
     }
-
-    /* ── Buttons ── */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 20px;
-      border: none;
-      border-radius: var(--radius-sm);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      width: 100%;
-      font-family: inherit;
-    }
-    .btn:active { transform: scale(0.97); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
-    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 0 20px var(--accent-glow); }
-
-    .btn-secondary {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover:not(:disabled) { background: var(--bg-input); }
-
-    .btn-success {
-      background: var(--success);
-      color: #0f0f13;
-    }
-
-    .btn-small {
-      padding: 8px 14px;
-      font-size: 12px;
-      width: auto;
-    }
-
-    .btn-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    /* ── Steps ── */
-    .step {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      margin-bottom: 12px;
-      transition: border-color 0.3s;
-    }
-    .step.active-step { border-color: var(--accent); }
-    .step.done { border-color: var(--success); opacity: 0.7; }
-    .step-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .step-number {
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      background: var(--bg-tertiary);
-      color: var(--text-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-    .step.active-step .step-number { background: var(--accent); color: white; }
-    .step.done .step-number { background: var(--success); color: white; }
-    .step-title { font-size: 14px; font-weight: 600; }
-    .step-body { padding-left: 38px; }
-    .step-body p {
-      font-size: 13px;
-      color: var(--text-secondary);
-      margin-bottom: 10px;
-      line-height: 1.5;
-    }
-
-    /* ── Textarea ── */
-    .token-area {
-      width: 100%;
-      min-height: 72px;
-      max-height: 120px;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 10px;
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    .hdr-status {
       font-size: 11px;
+      color: var(--text-dim);
+    }
+    .hdr-status.on { color: var(--green); }
+    .hdr-status.warn { color: var(--amber); }
+
+    .badge {
+      display: none;
+      font-size: 10px;
+      color: var(--bg);
+      background: var(--green);
+      padding: 1px 6px;
+      font-weight: bold;
+    }
+    .badge.on { display: inline-block; }
+
+    /* ── SCREENS ── */
+    .scr { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .scr.active { display: flex; }
+
+    /* ── SETUP ── */
+    .setup {
+      padding: 16px 12px;
+      overflow-y: auto;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .panel h2 {
+      font-size: 13px;
+      color: var(--green);
+      margin-bottom: 4px;
+      font-weight: bold;
+    }
+    .panel p {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-block;
+      padding: 8px 16px;
+      border: 1px solid var(--green-dim);
+      background: transparent;
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .btn:hover { background: var(--green-dim); color: #fff; }
+    .btn:active { background: var(--green); color: var(--bg); }
+    .btn:disabled { opacity: 0.25; cursor: not-allowed; }
+    .btn:disabled:hover { background: transparent; color: var(--green); }
+
+    .btn-amber { border-color: #553300; color: var(--amber); }
+    .btn-amber:hover { background: #553300; color: #fff; }
+    .btn-amber:active { background: var(--amber); color: var(--bg); }
+
+    .btn-red { border-color: #550000; color: var(--red); }
+    .btn-red:hover { background: #550000; color: #fff; }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── TEXTAREA ── */
+    .tok {
+      width: 100%;
+      min-height: 56px;
+      max-height: 100px;
+      background: var(--bg);
+      color: var(--cyan);
+      border: 1px solid var(--border);
+      padding: 8px;
+      font-family: var(--mono);
+      font-size: 10px;
       resize: vertical;
       line-height: 1.4;
       word-break: break-all;
     }
-    .token-area:focus { outline: none; border-color: var(--accent); }
-    .token-area::placeholder { color: var(--text-muted); }
+    .tok:focus { outline: none; border-color: var(--green-dim); }
+    .tok::placeholder { color: var(--text-dim); }
 
-    /* ── Chat Screen ── */
-    .chat-screen { flex: 1; display: flex; flex-direction: column; }
+    /* ── STEPS ── */
+    .step {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .step.act { border-color: var(--green-dim); }
+    .step.done { border-color: var(--text-dim); opacity: 0.5; }
+    .step-hdr {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .step-n {
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+    .step.act .step-n { color: var(--green); }
+    .step.done .step-n { color: var(--text-dim); }
+    .step-t { font-size: 12px; font-weight: bold; }
+    .step-body {
+      padding-left: 20px;
+    }
+    .step-body p {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
 
-    .messages {
+    /* ── CHAT ── */
+    .chat { flex: 1; display: flex; flex-direction: column; }
+
+    .fingerprint {
+      display: none;
+      background: var(--bg2);
+      padding: 4px 12px;
+      font-size: 10px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      text-align: center;
+    }
+    .fingerprint.on { display: block; }
+    .fingerprint:hover { color: var(--green); }
+
+    /* ── EPHEMERAL TOGGLE ── */
+    .eph-bar {
+      display: none;
+      background: var(--bg2);
+      padding: 4px 12px;
+      font-size: 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .eph-bar.on { display: flex; }
+    .eph-bar label { color: var(--text-dim); cursor: pointer; }
+    .eph-bar select {
+      background: var(--bg);
+      color: var(--amber);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 4px;
+    }
+    .eph-toggle {
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 10px;
+    }
+    .eph-toggle.active { color: var(--amber); }
+
+    /* ── MESSAGES ── */
+    .msgs {
       flex: 1;
       overflow-y: auto;
-      padding: 12px 16px;
+      padding: 8px 12px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      scroll-behavior: smooth;
+      gap: 1px;
       -webkit-overflow-scrolling: touch;
     }
 
-    .msg {
-      max-width: 82%;
-      padding: 10px 14px;
-      border-radius: 16px;
-      font-size: 14px;
-      line-height: 1.45;
-      word-wrap: break-word;
-      animation: msgIn 0.25s ease-out;
-    }
-
-    @keyframes msgIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .msg.local {
-      background: var(--msg-local);
-      align-self: flex-end;
-      border-bottom-right-radius: 4px;
-    }
-    .msg.remote {
-      background: var(--msg-remote);
-      align-self: flex-start;
-      border-bottom-left-radius: 4px;
-    }
-    .msg.system {
-      align-self: center;
-      background: transparent;
-      color: var(--text-muted);
+    .m {
       font-size: 12px;
-      text-align: center;
-      padding: 6px 12px;
-      max-width: 90%;
+      line-height: 1.5;
+      padding: 2px 0;
+      word-wrap: break-word;
     }
-    .msg.system.success { color: var(--success); }
-    .msg.system.warning { color: var(--warning); }
-
-    .msg-time {
+    .m .ts {
+      color: var(--text-dim);
       font-size: 10px;
-      color: var(--text-muted);
-      margin-top: 3px;
-      text-align: right;
+      margin-right: 4px;
+    }
+    .m.out .tag { color: var(--green); }
+    .m.in .tag { color: var(--cyan); }
+    .m.sys {
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+    .m.sys.ok { color: var(--green); }
+    .m.sys.wrn { color: var(--amber); }
+    .m.sys.err { color: var(--red); }
+
+    .m .sts {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-left: 4px;
+    }
+    .m .sts.dlv { color: var(--green); }
+
+    .m .eph-timer {
+      font-size: 9px;
+      color: var(--red);
+      margin-left: 4px;
     }
 
-    /* ── Input Bar ── */
-    .input-bar {
-      background: var(--bg-secondary);
+    .m.fading { opacity: 0.3; }
+    .m.destroyed { display: none; }
+
+    .typing-line {
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 2px 0;
+      display: none;
+    }
+    .typing-line.on { display: block; }
+
+    /* ── INPUT ── */
+    .ibar {
+      background: var(--bg2);
       border-top: 1px solid var(--border);
-      padding: 10px 12px;
+      padding: 8px 12px;
       display: flex;
       gap: 8px;
-      align-items: flex-end;
-      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      align-items: center;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
     }
-    .input-bar input {
+    .ibar input {
       flex: 1;
-      background: var(--bg-input);
-      color: var(--text-primary);
+      background: var(--bg);
+      color: var(--text);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 10px 16px;
-      font-size: 15px;
-      font-family: inherit;
+      padding: 8px 10px;
+      font-family: var(--mono);
+      font-size: 13px;
       outline: none;
     }
-    .input-bar input:focus { border-color: var(--accent); }
-    .input-bar input::placeholder { color: var(--text-muted); }
+    .ibar input:focus { border-color: var(--green-dim); }
+    .ibar input::placeholder { color: var(--text-dim); }
 
-    .send-btn {
-      width: 42px; height: 42px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: white;
-      border: none;
+    .sbtn {
+      background: transparent;
+      color: var(--green);
+      border: 1px solid var(--green-dim);
+      padding: 8px 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: bold;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
       flex-shrink: 0;
-      transition: all 0.2s;
     }
-    .send-btn:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 0 16px var(--accent-glow); }
-    .send-btn:active { transform: scale(0.92); }
-    .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .sbtn:hover { background: var(--green-dim); }
+    .sbtn:active { background: var(--green); color: var(--bg); }
+    .sbtn:disabled { opacity: 0.2; cursor: not-allowed; }
+    .sbtn:disabled:hover { background: transparent; }
 
-    /* ── Encryption Badge ── */
-    .enc-badge {
+    /* ── RECONNECT PANEL ── */
+    .recon-panel {
       display: none;
-      align-items: center;
-      gap: 5px;
-      background: var(--success-bg);
-      color: var(--success);
-      padding: 3px 10px;
-      border-radius: 20px;
+      background: var(--bg2);
+      border: 1px solid var(--red);
+      padding: 10px 12px;
+      margin: 8px 12px;
       font-size: 11px;
-      font-weight: 600;
     }
-    .enc-badge.visible { display: inline-flex; }
-
-    /* ── Fingerprint ── */
-    .fingerprint-bar {
-      display: none;
-      background: var(--bg-tertiary);
-      padding: 8px 16px;
-      font-family: 'SF Mono', 'Fira Code', monospace;
+    .recon-panel.on { display: block; }
+    .recon-panel h3 {
+      color: var(--red);
       font-size: 11px;
-      color: var(--text-secondary);
-      text-align: center;
-      cursor: pointer;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
     }
-    .fingerprint-bar.visible { display: block; }
-    .fingerprint-bar:hover { background: var(--bg-input); }
+    .recon-panel p {
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .recon-panel .tok {
+      min-height: 44px;
+      max-height: 80px;
+      font-size: 9px;
+      margin-bottom: 6px;
+    }
 
-    /* ── Toast ── */
+    /* ── TOAST ── */
     .toast {
       position: fixed;
-      bottom: 80px;
+      bottom: 70px;
       left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-size: 13px;
-      opacity: 0;
-      transition: all 0.3s;
+      transform: translateX(-50%);
+      background: var(--bg3);
+      color: var(--green);
+      padding: 6px 16px;
+      border: 1px solid var(--green-dim);
+      font-family: var(--mono);
+      font-size: 11px;
       z-index: 100;
-      pointer-events: none;
+      display: none;
       white-space: nowrap;
     }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.show { display: block; }
 
-    /* ── Responsive ── */
+    /* ── RESPONSIVE ── */
     @media (min-width: 600px) {
-      body { max-width: 500px; margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+      body { max-width: 520px; margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
     }
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar { width: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
-
-    /* ── Loading spinner ── */
-    .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid var(--text-muted);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      vertical-align: middle;
-      margin-right: 6px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    ::-webkit-scrollbar-thumb { background: var(--border); }
   </style>
 </head>
 <body>
 
-  <!-- ══════════ HEADER ══════════ -->
-  <div class="header">
-    <div class="header-icon">🔒</div>
-    <div class="header-info">
-      <div class="header-title">P2P Encrypted Chat</div>
-      <div class="header-status">
-        <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">Desconectado</span>
-      </div>
-    </div>
-    <div class="enc-badge" id="encBadge">🛡️ E2EE</div>
+  <!-- ═══ HEADER ═══ -->
+  <div class="hdr">
+    <span class="hdr-title">[ P2P-E2EE ]</span>
+    <span class="badge" id="encBadge">E2EE</span>
+    <span class="hdr-status" id="status">OFFLINE</span>
   </div>
 
-  <!-- ══════════ SETUP SCREEN ══════════ -->
-  <div class="screen setup-screen active" id="screenSetup">
-
-    <div class="setup-card">
-      <h2>💬 Chat directo y privado</h2>
-      <p>Conexión peer-to-peer con cifrado de extremo a extremo. Sin servidores intermedios. Elige tu rol para empezar:</p>
+  <!-- ═══ SETUP ═══ -->
+  <div class="scr setup active" id="scrSetup">
+    <div class="panel">
+      <h2>> peer-to-peer encrypted chat</h2>
+      <p>Conexión directa. Cifrado extremo a extremo. Sin servidores. Sin logs. Sin rastro.</p>
       <div class="btn-row">
-        <button class="btn btn-primary" id="btnRoleA" onclick="startAsInitiator()">🚀 Crear Chat</button>
-        <button class="btn btn-secondary" id="btnRoleB" onclick="startAsReceiver()">📥 Unirse</button>
+        <button class="btn" id="btnA" onclick="initA()">[ CREAR SALA ]</button>
+        <button class="btn btn-amber" id="btnB" onclick="initB()">[ UNIRSE ]</button>
       </div>
     </div>
 
-    <!-- ── INITIATOR FLOW ── -->
-    <div id="flowInitiator" style="display:none;">
-      <div class="step active-step" id="stepA1">
-        <div class="step-header">
-          <div class="step-number">1</div>
-          <div class="step-title">Generando invitación...</div>
+    <!-- INITIATOR -->
+    <div id="flowA" style="display:none">
+      <div class="step act" id="sA1">
+        <div class="step-hdr">
+          <span class="step-n">[01]</span>
+          <span class="step-t">GENERANDO TOKEN...</span>
         </div>
         <div class="step-body">
-          <p>Copia este token y envíaselo a tu contacto por cualquier medio (WhatsApp, email, etc.):</p>
-          <textarea class="token-area" id="tokenOffer" readonly placeholder="Generando..."></textarea>
-          <div style="margin-top:8px;">
-            <button class="btn btn-secondary btn-small" onclick="copyToken('tokenOffer')">📋 Copiar token</button>
+          <p>Copia este token y envíalo a tu contacto:</p>
+          <textarea class="tok" id="tokOffer" readonly placeholder="generando..."></textarea>
+          <div style="margin-top:6px">
+            <button class="btn" onclick="clip('tokOffer')" style="font-size:10px">COPIAR</button>
           </div>
         </div>
       </div>
-
-      <div class="step" id="stepA2">
-        <div class="step-header">
-          <div class="step-number">2</div>
-          <div class="step-title">Pega la respuesta</div>
+      <div class="step" id="sA2">
+        <div class="step-hdr">
+          <span class="step-n">[02]</span>
+          <span class="step-t">PEGAR RESPUESTA</span>
         </div>
         <div class="step-body">
-          <p>Cuando tu contacto te envíe su token de respuesta, pégalo aquí:</p>
-          <textarea class="token-area" id="tokenAnswerInput" placeholder="Pega aquí el token de respuesta..."></textarea>
-          <div style="margin-top:8px;">
-            <button class="btn btn-success btn-small" onclick="completeAsInitiator()">✅ Conectar</button>
+          <p>Pega el token de respuesta de tu contacto:</p>
+          <textarea class="tok" id="tokAnsIn" placeholder="pegar token respuesta..."></textarea>
+          <div style="margin-top:6px">
+            <button class="btn" onclick="finishA()" style="font-size:10px">CONECTAR</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ── RECEIVER FLOW ── -->
-    <div id="flowReceiver" style="display:none;">
-      <div class="step active-step" id="stepB1">
-        <div class="step-header">
-          <div class="step-number">1</div>
-          <div class="step-title">Pega la invitación</div>
+    <!-- RECEIVER -->
+    <div id="flowB" style="display:none">
+      <div class="step act" id="sB1">
+        <div class="step-hdr">
+          <span class="step-n">[01]</span>
+          <span class="step-t">PEGAR INVITACIÓN</span>
         </div>
         <div class="step-body">
-          <p>Pega el token de invitación que te han enviado:</p>
-          <textarea class="token-area" id="tokenOfferInput" placeholder="Pega aquí el token de invitación..."></textarea>
-          <div style="margin-top:8px;">
-            <button class="btn btn-primary btn-small" onclick="processOffer()">🔗 Generar respuesta</button>
+          <p>Pega el token de invitación que te han dado:</p>
+          <textarea class="tok" id="tokOfferIn" placeholder="pegar token invitación..."></textarea>
+          <div style="margin-top:6px">
+            <button class="btn" onclick="processB()" style="font-size:10px">PROCESAR</button>
           </div>
         </div>
       </div>
-
-      <div class="step" id="stepB2" style="display:none;">
-        <div class="step-header">
-          <div class="step-number">2</div>
-          <div class="step-title">Envía tu respuesta</div>
+      <div class="step" id="sB2" style="display:none">
+        <div class="step-hdr">
+          <span class="step-n">[02]</span>
+          <span class="step-t">ENVIAR RESPUESTA</span>
         </div>
         <div class="step-body">
           <p>Copia este token y envíaselo de vuelta:</p>
-          <textarea class="token-area" id="tokenAnswer" readonly placeholder="Generando..."></textarea>
-          <div style="margin-top:8px;">
-            <button class="btn btn-secondary btn-small" onclick="copyToken('tokenAnswer')">📋 Copiar respuesta</button>
+          <textarea class="tok" id="tokAnswer" readonly placeholder="generando..."></textarea>
+          <div style="margin-top:6px">
+            <button class="btn" onclick="clip('tokAnswer')" style="font-size:10px">COPIAR</button>
           </div>
-          <p style="margin-top:10px;">Esperando conexión... <span class="spinner"></span></p>
+          <p style="margin-top:8px;color:var(--amber)">esperando conexión...</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══════════ CHAT SCREEN ══════════ -->
-  <div class="screen chat-screen" id="screenChat">
-    <div class="fingerprint-bar" id="fingerprintBar" onclick="copyFingerprint()"></div>
-    <div class="messages" id="messages"></div>
-    <div class="input-bar">
-      <input type="text" id="msgInput" placeholder="Escribe un mensaje..." autocomplete="off" disabled>
-      <button class="send-btn" id="btnSend" onclick="sendMessage()" disabled>➤</button>
+  <!-- ═══ CHAT ═══ -->
+  <div class="scr chat" id="scrChat">
+    <div class="fingerprint" id="fpBar" onclick="clipFP()"></div>
+    <div class="eph-bar" id="ephBar">
+      <span class="eph-toggle active" id="ephToggle" onclick="toggleEph()">[ EFÍMERO: ON ]</span>
+      <select id="ephTime">
+        <option value="10">10s</option>
+        <option value="30" selected>30s</option>
+        <option value="60">1min</option>
+        <option value="300">5min</option>
+      </select>
+    </div>
+    <div class="msgs" id="msgs">
+      <div class="typing-line" id="typingLine">--- peer escribiendo... ---</div>
+    </div>
+    <div class="recon-panel" id="reconPanel">
+      <h3>> CONEXIÓN PERDIDA</h3>
+      <div id="reconAuto">
+        <p>Intentando reconexión automática...</p>
+      </div>
+      <div id="reconManual" style="display:none">
+        <p>Reconexión automática fallida. Intercambiad tokens de nuevo:</p>
+        <div id="reconInitUI">
+          <p style="color:var(--amber)">Tu token de reconexión (copia y envía):</p>
+          <textarea class="tok" id="reconTokLocal" readonly></textarea>
+          <div class="btn-row" style="margin:6px 0">
+            <button class="btn" onclick="clip('reconTokLocal')" style="font-size:10px">COPIAR</button>
+          </div>
+          <p style="color:var(--amber)">Token del peer (pega aquí):</p>
+          <textarea class="tok" id="reconTokRemote" placeholder="pegar token del peer..."></textarea>
+          <div class="btn-row" style="margin-top:6px">
+            <button class="btn" onclick="reconFinish()" style="font-size:10px">RECONECTAR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ibar">
+      <input type="text" id="inp" placeholder="> ..." autocomplete="off" disabled>
+      <button class="sbtn" id="sendBtn" onclick="sendMsg()" disabled>TX</button>
     </div>
   </div>
 
-  <!-- ══════════ TOAST ══════════ -->
+  <!-- TOAST -->
   <div class="toast" id="toast"></div>
 
   <script>
-    // ═══════════════════════════════════════════════
-    //  ESTADO GLOBAL
-    // ═══════════════════════════════════════════════
-    let pc = null;
-    let dataChannel = null;
-    let ecdhKeyPair = null;
-    let sessionKey = null;
-    let isInitiator = false;
-    let sessionFingerprint = '';
+    // ═══════════════════════════════════════
+    //  GLOBALS
+    // ═══════════════════════════════════════
+    let pc = null, dc = null, keys = null, sessKey = null;
+    let isInit = false, fp = '', msgCounter = 0;
+    let ephemeral = true, ephSeconds = 30;
+    let originalTitle = document.title, unreadCount = 0, hasFocus = true;
 
-    const ICE_CONFIG = {
+    const STUN = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
@@ -507,518 +511,683 @@
       ]
     };
 
-    // ═══════════════════════════════════════════════
-    //  UTILIDADES
-    // ═══════════════════════════════════════════════
-    function $(id) { return document.getElementById(id); }
+    // ═══════════════════════════════════════
+    //  UTILS
+    // ═══════════════════════════════════════
+    const $ = id => document.getElementById(id);
 
-    function showToast(msg, duration = 2500) {
+    function toast(msg, ms = 2200) {
       const t = $('toast');
       t.textContent = msg;
       t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), duration);
+      setTimeout(() => t.classList.remove('show'), ms);
     }
 
-    function setStatus(text, state) {
-      $('statusText').textContent = text;
-      const dot = $('statusDot');
-      dot.className = 'status-dot';
-      if (state) dot.classList.add(state);
+    function setSt(txt, cls) {
+      const s = $('status');
+      s.textContent = txt;
+      s.className = 'hdr-status';
+      if (cls) s.classList.add(cls);
     }
 
-    function timeStr() {
-      return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    function ts() {
+      return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
-    function addMsg(text, type = 'system') {
-      const container = $('messages');
-      const div = document.createElement('div');
-      div.className = `msg ${type}`;
+    function clip(id) {
+      const v = $(id).value;
+      if (!v) return;
+      navigator.clipboard.writeText(v)
+        .then(() => toast('copiado'))
+        .catch(() => { $(id).select(); document.execCommand('copy'); toast('copiado'); });
+    }
 
-      if (type === 'local' || type === 'remote') {
-        const time = document.createElement('div');
-        time.className = 'msg-time';
-        time.textContent = timeStr();
-        div.textContent = text;
-        div.appendChild(time);
-      } else {
-        div.textContent = text;
-        if (text.includes('🔐') || text.includes('✅')) div.classList.add('success');
-        if (text.includes('⚠')) div.classList.add('warning');
+    function clipFP() {
+      navigator.clipboard.writeText(fp).then(() => toast('fingerprint copiado'));
+    }
+
+    // ═══════════════════════════════════════
+    //  MESSAGE RENDERING
+    // ═══════════════════════════════════════
+    function addSys(txt, cls = '') {
+      const d = document.createElement('div');
+      d.className = `m sys ${cls}`;
+      d.innerHTML = `<span class="ts">[${ts()}]</span> --- ${esc(txt)} ---`;
+      $('msgs').insertBefore(d, $('typingLine'));
+      scrollDown();
+    }
+
+    function addChat(text, dir, msgId) {
+      const d = document.createElement('div');
+      d.className = `m ${dir}`;
+      d.dataset.msgId = msgId;
+
+      const tag = dir === 'out' ? '&gt;' : '&lt;';
+      let stsHtml = '';
+      if (dir === 'out') {
+        stsHtml = `<span class="sts" id="sts-${msgId}">✓</span>`;
       }
 
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
+      let ephHtml = '';
+      if (ephemeral) {
+        const secs = ephSeconds;
+        d.dataset.ephemeral = secs;
+        ephHtml = `<span class="eph-timer" id="eph-${msgId}">[${secs}s]</span>`;
+        startEphTimer(d, msgId, secs);
+      }
+
+      d.innerHTML = `<span class="ts">[${ts()}]</span> <span class="tag">${tag}</span> ${esc(text)}${stsHtml}${ephHtml}`;
+      $('msgs').insertBefore(d, $('typingLine'));
+      scrollDown();
+      return d;
     }
 
-    function copyToken(id) {
-      const text = $(id).value;
-      if (!text) return;
-      navigator.clipboard.writeText(text).then(() => {
-        showToast('✅ Token copiado al portapapeles');
-      }).catch(() => {
-        // Fallback para móvil
-        $(id).select();
-        document.execCommand('copy');
-        showToast('✅ Token copiado');
-      });
+    function esc(s) {
+      const d = document.createElement('span');
+      d.textContent = s;
+      return d.innerHTML;
     }
 
-    function copyFingerprint() {
-      navigator.clipboard.writeText(sessionFingerprint).then(() => {
-        showToast('🔑 Fingerprint copiado');
-      });
+    function scrollDown() {
+      const m = $('msgs');
+      m.scrollTop = m.scrollHeight;
     }
 
-    // ═══════════════════════════════════════════════
-    //  CRIPTOGRAFÍA — ECDH + AES-256-GCM
-    // ═══════════════════════════════════════════════
-    async function generateECDHKeys() {
-      ecdhKeyPair = await crypto.subtle.generateKey(
+    // ═══════════════════════════════════════
+    //  TAB NOTIFICATIONS
+    // ═══════════════════════════════════════
+    window.addEventListener('focus', () => {
+      hasFocus = true;
+      unreadCount = 0;
+      document.title = originalTitle;
+    });
+    window.addEventListener('blur', () => { hasFocus = false; });
+
+    function notifyTab() {
+      if (hasFocus) return;
+      unreadCount++;
+      document.title = `[${unreadCount}] ${originalTitle}`;
+    }
+
+    // ═══════════════════════════════════════
+    //  EPHEMERAL MESSAGES
+    // ═══════════════════════════════════════
+    function toggleEph() {
+      ephemeral = !ephemeral;
+      $('ephToggle').textContent = ephemeral ? '[ EFÍMERO: ON ]' : '[ EFÍMERO: OFF ]';
+      $('ephToggle').className = ephemeral ? 'eph-toggle active' : 'eph-toggle';
+      $('ephTime').style.display = ephemeral ? 'inline' : 'none';
+    }
+
+    $('ephTime').addEventListener('change', (e) => { ephSeconds = parseInt(e.target.value); });
+
+    function startEphTimer(el, msgId, secs) {
+      let remaining = secs;
+      const interval = setInterval(() => {
+        remaining--;
+        const timer = $(`eph-${msgId}`);
+        if (timer) timer.textContent = `[${remaining}s]`;
+
+        if (remaining <= 5) el.classList.add('fading');
+
+        if (remaining <= 0) {
+          clearInterval(interval);
+          el.classList.add('destroyed');
+        }
+      }, 1000);
+    }
+
+    // ═══════════════════════════════════════
+    //  TYPING INDICATOR
+    // ═══════════════════════════════════════
+    let typingTO = null, lastTypeSent = 0;
+
+    function showTyping() {
+      $('typingLine').classList.add('on');
+      clearTimeout(typingTO);
+      typingTO = setTimeout(() => $('typingLine').classList.remove('on'), 2500);
+      scrollDown();
+    }
+
+    function sendTyping() {
+      if (!dc || dc.readyState !== 'open' || !sessKey) return;
+      const now = Date.now();
+      if (now - lastTypeSent < 1500) return;
+      lastTypeSent = now;
+      dc.send(JSON.stringify({ t: 'TYP' }));
+    }
+
+    // ═══════════════════════════════════════
+    //  COMPRESSION (deflate)
+    // ═══════════════════════════════════════
+    async function compress(str) {
+      try {
+        const blob = new Blob([str]);
+        const cs = new CompressionStream('deflate');
+        const stream = blob.stream().pipeThrough(cs);
+        const buf = await new Response(stream).arrayBuffer();
+        return 'C:' + ab2b64(buf);
+      } catch {
+        return 'R:' + btoa(str);
+      }
+    }
+
+    async function decompress(token) {
+      token = token.trim();
+      if (token.startsWith('C:')) {
+        const buf = b642ab(token.slice(2));
+        const blob = new Blob([buf]);
+        const ds = new DecompressionStream('deflate');
+        const stream = blob.stream().pipeThrough(ds);
+        return await new Response(stream).text();
+      } else if (token.startsWith('R:')) {
+        return atob(token.slice(2));
+      }
+      // Fallback: legacy uncompressed base64
+      return atob(token);
+    }
+
+    // ═══════════════════════════════════════
+    //  CRYPTO — ECDH + AES-256-GCM
+    // ═══════════════════════════════════════
+    async function genKeys() {
+      keys = await crypto.subtle.generateKey(
         { name: 'ECDH', namedCurve: 'P-256' },
-        true,
-        ['deriveKey', 'deriveBits']
+        true, ['deriveKey', 'deriveBits']
       );
     }
 
-    async function exportPublicKey() {
-      const raw = await crypto.subtle.exportKey('raw', ecdhKeyPair.publicKey);
-      return arrayBufferToBase64(raw);
+    async function exportPub() {
+      return ab2b64(await crypto.subtle.exportKey('raw', keys.publicKey));
     }
 
-    async function deriveSessionKey(peerPublicKeyBase64) {
-      const peerKeyBytes = base64ToArrayBuffer(peerPublicKeyBase64);
-      const peerPubKey = await crypto.subtle.importKey(
-        'raw', peerKeyBytes,
-        { name: 'ECDH', namedCurve: 'P-256' },
-        true, []
+    async function deriveKey(peerB64) {
+      const peerKey = await crypto.subtle.importKey(
+        'raw', b642ab(peerB64),
+        { name: 'ECDH', namedCurve: 'P-256' }, true, []
+      );
+      const bits = await crypto.subtle.deriveBits(
+        { name: 'ECDH', public: peerKey }, keys.privateKey, 256
       );
 
-      // Derivar bits compartidos
-      const sharedBits = await crypto.subtle.deriveBits(
-        { name: 'ECDH', public: peerPubKey },
-        ecdhKeyPair.privateKey,
-        256
-      );
+      // Fingerprint
+      const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bits));
+      fp = Array.from(hash.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(':').toUpperCase();
 
-      // Generar fingerprint para verificación visual
-      const hashBuf = await crypto.subtle.digest('SHA-256', sharedBits);
-      const hashArr = new Uint8Array(hashBuf);
-      sessionFingerprint = Array.from(hashArr.slice(0, 8))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join(' ')
-        .toUpperCase();
-
-      // HKDF → AES-256-GCM key
-      const hkdfKey = await crypto.subtle.importKey(
-        'raw', sharedBits,
-        { name: 'HKDF' },
-        false, ['deriveKey']
-      );
-
-      sessionKey = await crypto.subtle.deriveKey(
-        {
-          name: 'HKDF',
-          hash: 'SHA-256',
-          salt: new TextEncoder().encode('P2P-E2EE-Chat-v1'),
-          info: new TextEncoder().encode('AES-GCM-256-Session')
-        },
-        hkdfKey,
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['encrypt', 'decrypt']
+      // HKDF -> AES key
+      const hkdf = await crypto.subtle.importKey('raw', bits, { name: 'HKDF' }, false, ['deriveKey']);
+      sessKey = await crypto.subtle.deriveKey(
+        { name: 'HKDF', hash: 'SHA-256', salt: new TextEncoder().encode('P2P-E2EE-v2'), info: new TextEncoder().encode('AES256GCM') },
+        hkdf,
+        { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
       );
     }
 
-    async function encryptText(plaintext) {
+    async function encrypt(txt) {
       const iv = crypto.getRandomValues(new Uint8Array(12));
-      const encoded = new TextEncoder().encode(plaintext);
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        sessionKey,
-        encoded
+      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sessKey, new TextEncoder().encode(txt));
+      return { iv: ab2b64(iv), d: ab2b64(ct) };
+    }
+
+    async function decrypt(p) {
+      const dec = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: b642ab(p.iv) }, sessKey, b642ab(p.d)
       );
-      return {
-        iv: arrayBufferToBase64(iv),
-        data: arrayBufferToBase64(ciphertext)
-      };
+      return new TextDecoder().decode(dec);
     }
 
-    async function decryptText(payload) {
-      const iv = base64ToArrayBuffer(payload.iv);
-      const data = base64ToArrayBuffer(payload.data);
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv },
-        sessionKey,
-        data
-      );
-      return new TextDecoder().decode(decrypted);
+    function ab2b64(buf) {
+      const a = new Uint8Array(buf);
+      let s = '';
+      for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]);
+      return btoa(s);
     }
 
-    // Conversiones Base64 ↔ ArrayBuffer
-    function arrayBufferToBase64(buffer) {
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      return btoa(binary);
+    function b642ab(b64) {
+      const s = atob(b64);
+      const a = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+      return a.buffer;
     }
 
-    function base64ToArrayBuffer(b64) {
-      const binary = atob(b64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      return bytes.buffer;
+    // ═══════════════════════════════════════
+    //  WEBRTC
+    // ═══════════════════════════════════════
+    let reconTimer = null;
+
+    function waitICE() {
+      return new Promise(res => {
+        if (pc.iceGatheringState === 'complete') return res();
+        const fn = () => {
+          if (pc.iceGatheringState === 'complete') {
+            pc.removeEventListener('icegatheringstatechange', fn);
+            res();
+          }
+        };
+        pc.addEventListener('icegatheringstatechange', fn);
+        pc.onicecandidate = e => {
+          if (!e.candidate) {
+            pc.removeEventListener('icegatheringstatechange', fn);
+            res();
+          }
+        };
+      });
     }
 
-    // ═══════════════════════════════════════════════
-    //  WEBRTC — CONEXIÓN P2P
-    // ═══════════════════════════════════════════════
-    function createPeerConnection() {
-      pc = new RTCPeerConnection(ICE_CONFIG);
+    async function encodeSDP(desc) {
+      return await compress(JSON.stringify(desc));
+    }
+
+    async function decodeSDP(tok) {
+      const raw = await decompress(tok);
+      return JSON.parse(raw);
+    }
+
+    function createPC() {
+      pc = new RTCPeerConnection(STUN);
 
       pc.onconnectionstatechange = () => {
-        const state = pc.connectionState;
-        if (state === 'connected') {
-          setStatus('Conectado — negociando cifrado...', 'connecting');
-        } else if (state === 'disconnected' || state === 'failed') {
-          setStatus('Desconectado', '');
-          addMsg('⚠ Conexión perdida con el peer');
-          disableChat();
-        } else if (state === 'closed') {
-          setStatus('Sesión cerrada', '');
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'failed') {
-          addMsg('⚠ Error de conexión. Puede que estéis en redes con NAT simétrico (4G/corporativa). Inténtalo desde otra red.');
+        const st = pc.connectionState;
+        if (st === 'connected') {
+          setSt('CONNECTED', 'warn');
+          reconnectAttempts = 0;
+          clearTimeout(reconTimer);
+          hideReconPanel();
+        } else if (st === 'disconnected') {
+          setSt('DISCONNECTED', 'warn');
+          addSys('conexión inestable — esperando...', 'wrn');
+          // Esperar 3s antes de intentar reconexión (los cortes breves se resuelven solos)
+          clearTimeout(reconTimer);
+          reconTimer = setTimeout(() => {
+            if (pc && pc.connectionState === 'disconnected') {
+              addSys('conexión perdida — intentando reconectar...', 'wrn');
+              tryReconnect();
+            }
+          }, 3000);
+        } else if (st === 'failed') {
+          setSt('FAILED', '');
+          clearTimeout(reconTimer);
+          addSys('conexión fallida', 'err');
+          tryReconnect();
         }
       };
     }
 
-    function waitForICEGathering() {
-      return new Promise((resolve) => {
-        if (pc.iceGatheringState === 'complete') {
-          resolve();
+    // ═══════════════════════════════════════
+    //  RECONNECTION — 2 NIVELES
+    // ═══════════════════════════════════════
+    // Nivel 1: ICE restart automático vía DataChannel (si sigue abierto)
+    // Nivel 2: Intercambio manual de tokens (si el DataChannel está muerto)
+
+    let reconnectAttempts = 0;
+    const MAX_AUTO_RECONNECT = 3;
+
+    async function tryReconnect() {
+      // ¿El DataChannel sigue vivo? → ICE restart automático
+      if (dc && dc.readyState === 'open') {
+        if (reconnectAttempts >= MAX_AUTO_RECONNECT) {
+          addSys('auto-reconexión agotada — cambiando a manual...', 'wrn');
+          showManualRecon();
           return;
         }
-        const checkState = () => {
-          if (pc.iceGatheringState === 'complete') {
-            pc.removeEventListener('icegatheringstatechange', checkState);
-            resolve();
-          }
-        };
-        pc.addEventListener('icegatheringstatechange', checkState);
+        reconnectAttempts++;
+        addSys(`auto-reconexión ${reconnectAttempts}/${MAX_AUTO_RECONNECT}...`, 'wrn');
+        setSt('RECONNECTING...', 'warn');
 
-        // También escuchar candidatos null como señal de fin
-        pc.onicecandidate = (e) => {
-          if (e.candidate === null) {
-            pc.removeEventListener('icegatheringstatechange', checkState);
-            resolve();
-          }
-        };
-      });
-    }
-
-    function encodeSDP(desc) {
-      return btoa(JSON.stringify(desc));
-    }
-
-    function decodeSDP(token) {
-      return JSON.parse(atob(token.trim()));
-    }
-
-    // ═══════════════════════════════════════════════
-    //  DATACHANNEL — MENSAJERÍA
-    // ═══════════════════════════════════════════════
-    function setupDataChannel(dc) {
-      dataChannel = dc;
-
-      dataChannel.onopen = async () => {
-        setStatus('Intercambiando claves...', 'connecting');
-
-        // Enviar clave pública ECDH por el canal seguro DTLS
-        const pubKey = await exportPublicKey();
-        dataChannel.send(JSON.stringify({
-          type: 'KEY_EXCHANGE',
-          key: pubKey
-        }));
-      };
-
-      dataChannel.onclose = () => {
-        setStatus('Canal cerrado', '');
-        addMsg('🔌 El peer ha cerrado la conexión');
-        disableChat();
-      };
-
-      dataChannel.onerror = (err) => {
-        console.error('DataChannel error:', err);
-        addMsg('⚠ Error en el canal de datos');
-      };
-
-      dataChannel.onmessage = async (event) => {
         try {
-          const msg = JSON.parse(event.data);
-
-          switch (msg.type) {
-            case 'KEY_EXCHANGE':
-              await deriveSessionKey(msg.key);
-              onEncryptionEstablished();
-              break;
-
-            case 'CHAT':
-              const plaintext = await decryptText(msg);
-              addMsg(plaintext, 'remote');
-              // Vibrar en móvil
-              if (navigator.vibrate) navigator.vibrate(50);
-              break;
-
-            case 'TYPING':
-              showTypingIndicator();
-              break;
-
-            default:
-              console.warn('Mensaje desconocido:', msg.type);
+          // Solo el initiator genera nueva offer
+          if (isInit) {
+            const offer = await pc.createOffer({ iceRestart: true });
+            await pc.setLocalDescription(offer);
+            await waitICE();
+            dc.send(JSON.stringify({
+              t: 'RESTART_OFFER',
+              sdp: JSON.stringify(pc.localDescription)
+            }));
+            addSys('ICE restart offer enviado al peer', '');
+          } else {
+            // El receiver espera la offer del initiator
+            addSys('esperando restart del initiator...', '');
           }
         } catch (err) {
-          console.error('Error procesando mensaje:', err);
-          addMsg('⚠ Error al descifrar un mensaje');
+          console.error('ICE restart failed:', err);
+          addSys('error en ICE restart', 'err');
+          showManualRecon();
+        }
+      } else {
+        // DataChannel muerto → reconexión manual
+        addSys('canal de datos perdido — reconexión manual necesaria', 'err');
+        showManualRecon();
+      }
+    }
+
+    function showReconPanel() {
+      $('reconPanel').classList.add('on');
+      disable();
+    }
+
+    function hideReconPanel() {
+      $('reconPanel').classList.remove('on');
+      $('reconAuto').style.display = 'block';
+      $('reconManual').style.display = 'none';
+      $('reconTokLocal').value = '';
+      $('reconTokRemote').value = '';
+    }
+
+    async function showManualRecon() {
+      showReconPanel();
+      $('reconAuto').style.display = 'none';
+      $('reconManual').style.display = 'block';
+      setSt('MANUAL RECON', '');
+
+      // Crear nuevo PeerConnection (ambos peers hacen esto)
+      // El que pulse primero genera offer, el otro la procesa
+      try {
+        // Limpiar la conexión anterior
+        if (pc) { try { pc.close(); } catch {} }
+
+        createPC();
+        const newDC = pc.createDataChannel('e2ee', { ordered: true });
+        setupDC(newDC);
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitICE();
+
+        const tok = await encodeSDP(pc.localDescription);
+        $('reconTokLocal').value = tok;
+        isInit = true;
+
+        addSys('token de reconexión generado — intercambiad tokens', 'wrn');
+      } catch (err) {
+        console.error('Manual recon setup failed:', err);
+        addSys('error generando token de reconexión', 'err');
+      }
+    }
+
+    async function reconFinish() {
+      const v = $('reconTokRemote').value.trim();
+      if (!v) { toast('pega el token del peer'); return; }
+
+      try {
+        const remoteSDP = await decodeSDP(v);
+
+        if (remoteSDP.type === 'offer') {
+          // El peer envió una offer → nosotros generamos answer
+          if (pc) { try { pc.close(); } catch {} }
+          createPC();
+          pc.ondatachannel = e => setupDC(e.channel);
+          isInit = false;
+
+          await pc.setRemoteDescription(new RTCSessionDescription(remoteSDP));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          await waitICE();
+
+          const tok = await encodeSDP(pc.localDescription);
+          $('reconTokLocal').value = tok;
+          addSys('answer generado — copia y envía al peer', 'wrn');
+          toast('answer generado — copia el token');
+        } else {
+          // Recibimos answer a nuestra offer
+          await pc.setRemoteDescription(new RTCSessionDescription(remoteSDP));
+          addSys('reconectando...', 'wrn');
+          setSt('CONNECTING...', 'warn');
+        }
+      } catch (err) {
+        console.error('Recon finish error:', err);
+        toast('token inválido');
+      }
+    }
+
+    // ═══════════════════════════════════════
+    //  DATACHANNEL
+    // ═══════════════════════════════════════
+    function setupDC(ch) {
+      dc = ch;
+
+      dc.onopen = async () => {
+        setSt('KEY EXCHANGE...', 'warn');
+        reconnectAttempts = 0;
+        dc.send(JSON.stringify({ t: 'KEY', k: await exportPub() }));
+      };
+
+      dc.onclose = () => {
+        setSt('CLOSED', '');
+        addSys('canal cerrado', 'wrn');
+        disable();
+      };
+
+      dc.onmessage = async (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+
+          switch (msg.t) {
+            case 'KEY':
+              await deriveKey(msg.k);
+              onSecure();
+              break;
+
+            case 'MSG':
+              const plain = await decrypt(msg);
+              addChat(plain, 'in', msg.id);
+              // Send ACK
+              dc.send(JSON.stringify({ t: 'ACK', id: msg.id }));
+              // Ephemeral
+              if (msg.eph) {
+                const el = document.querySelector(`[data-msg-id="${msg.id}"]`);
+                if (el) {
+                  el.dataset.ephemeral = msg.eph;
+                  const ephSpan = document.createElement('span');
+                  ephSpan.className = 'eph-timer';
+                  ephSpan.id = `eph-${msg.id}`;
+                  ephSpan.textContent = `[${msg.eph}s]`;
+                  el.appendChild(ephSpan);
+                  startEphTimer(el, msg.id, msg.eph);
+                }
+              }
+              notifyTab();
+              if (navigator.vibrate) navigator.vibrate(30);
+              break;
+
+            case 'ACK':
+              const sts = $(`sts-${msg.id}`);
+              if (sts) { sts.textContent = '✓✓'; sts.classList.add('dlv'); }
+              break;
+
+            case 'TYP':
+              showTyping();
+              break;
+
+            case 'RESTART_OFFER':
+              // Peer quiere ICE restart — procesar su nueva offer
+              try {
+                const restartOffer = JSON.parse(msg.sdp);
+                await pc.setRemoteDescription(new RTCSessionDescription(restartOffer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await waitICE();
+                dc.send(JSON.stringify({
+                  t: 'RESTART_ANSWER',
+                  sdp: JSON.stringify(pc.localDescription)
+                }));
+                addSys('ICE restart procesado — answer enviado', '');
+              } catch (err) {
+                console.error('Restart offer processing failed:', err);
+                addSys('error procesando ICE restart', 'err');
+              }
+              break;
+
+            case 'RESTART_ANSWER':
+              // Respuesta a nuestro ICE restart
+              try {
+                const restartAnswer = JSON.parse(msg.sdp);
+                await pc.setRemoteDescription(new RTCSessionDescription(restartAnswer));
+                reconnectAttempts = 0;
+                addSys('ICE restart completado — reconectado', 'ok');
+                setSt('ENCRYPTED', 'on');
+              } catch (err) {
+                console.error('Restart answer processing failed:', err);
+                addSys('error en restart answer — intentando manual...', 'err');
+                showManualRecon();
+              }
+              break;
+          }
+        } catch (err) {
+          console.error('msg error:', err);
         }
       };
     }
 
-    function onEncryptionEstablished() {
-      // Activar UI de chat
-      $('screenSetup').classList.remove('active');
-      $('screenChat').classList.add('active');
+    function onSecure() {
+      $('scrSetup').classList.remove('active');
+      $('scrChat').classList.add('active');
 
-      setStatus('Cifrado activo — AES-256-GCM', 'encrypted');
-      $('encBadge').classList.add('visible');
+      setSt('ENCRYPTED', 'on');
+      $('encBadge').classList.add('on');
 
-      // Mostrar fingerprint
-      $('fingerprintBar').classList.add('visible');
-      $('fingerprintBar').textContent = `🔑 Fingerprint: ${sessionFingerprint} (toca para copiar)`;
+      $('fpBar').classList.add('on');
+      $('fpBar').textContent = `fingerprint: ${fp} [click para copiar]`;
 
-      enableChat();
-      addMsg('🔐 Cifrado E2E establecido — ECDH + AES-256-GCM', 'system');
-      addMsg(`🔑 Verificad que ambos tenéis el mismo fingerprint: ${sessionFingerprint}`, 'system');
-      addMsg('Los mensajes se cifran en tu navegador antes de enviarse. Nadie más puede leerlos.', 'system');
+      $('ephBar').classList.add('on');
+
+      // Ocultar panel de reconexión si estaba visible
+      hideReconPanel();
+      reconnectAttempts = 0;
+
+      enable();
+      addSys('cifrado E2E activo — ECDH + AES-256-GCM', 'ok');
+      addSys('fingerprint: ' + fp, 'ok');
+      addSys('verificad que ambos tenéis el mismo fingerprint', '');
+      addSys('nadie puede leer estos mensajes', 'ok');
     }
 
-    function enableChat() {
-      $('msgInput').disabled = false;
-      $('btnSend').disabled = false;
-      $('msgInput').focus();
+    function enable() {
+      $('inp').disabled = false;
+      $('sendBtn').disabled = false;
+      $('inp').focus();
+    }
+    function disable() {
+      $('inp').disabled = true;
+      $('sendBtn').disabled = true;
     }
 
-    function disableChat() {
-      $('msgInput').disabled = true;
-      $('btnSend').disabled = true;
-    }
+    // ═══════════════════════════════════════
+    //  FLOW A — INITIATOR
+    // ═══════════════════════════════════════
+    async function initA() {
+      isInit = true;
+      $('btnA').disabled = true;
+      $('btnB').disabled = true;
+      $('flowA').style.display = 'block';
+      setSt('GENERATING...', 'warn');
 
-    // ═══════════════════════════════════════════════
-    //  INDICADOR DE ESCRITURA
-    // ═══════════════════════════════════════════════
-    let typingTimeout = null;
-    let typingIndicator = null;
-    let lastTypingSent = 0;
+      await genKeys();
+      createPC();
+      setupDC(pc.createDataChannel('e2ee', { ordered: true }));
 
-    function showTypingIndicator() {
-      if (!typingIndicator) {
-        typingIndicator = document.createElement('div');
-        typingIndicator.className = 'msg system';
-        typingIndicator.textContent = '✏️ Escribiendo...';
-        $('messages').appendChild(typingIndicator);
-        $('messages').scrollTop = $('messages').scrollHeight;
-      }
-
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        if (typingIndicator) {
-          typingIndicator.remove();
-          typingIndicator = null;
-        }
-      }, 2000);
-    }
-
-    function notifyTyping() {
-      if (!dataChannel || dataChannel.readyState !== 'open' || !sessionKey) return;
-      const now = Date.now();
-      if (now - lastTypingSent < 1500) return;
-      lastTypingSent = now;
-      dataChannel.send(JSON.stringify({ type: 'TYPING' }));
-    }
-
-    // ═══════════════════════════════════════════════
-    //  FLUJO: CREAR CHAT (Peer A / Initiator)
-    // ═══════════════════════════════════════════════
-    async function startAsInitiator() {
-      isInitiator = true;
-      $('btnRoleA').disabled = true;
-      $('btnRoleB').disabled = true;
-      $('flowInitiator').style.display = 'block';
-
-      setStatus('Generando invitación...', 'connecting');
-
-      // 1. Generar claves ECDH
-      await generateECDHKeys();
-
-      // 2. Crear PeerConnection y DataChannel
-      createPeerConnection();
-      const dc = pc.createDataChannel('encrypted-chat', { ordered: true });
-      setupDataChannel(dc);
-
-      // 3. Crear Offer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      await waitICE();
 
-      // 4. Esperar a que se recojan todos los ICE candidates
-      await waitForICEGathering();
-
-      // 5. Mostrar token
-      const token = encodeSDP(pc.localDescription);
-      $('tokenOffer').value = token;
-      $('stepA1').querySelector('.step-title').textContent = '✅ Invitación lista';
-      $('stepA1').classList.remove('active-step');
-      $('stepA1').classList.add('done');
-      $('stepA2').classList.add('active-step');
-
-      setStatus('Esperando respuesta del peer...', 'connecting');
+      const tok = await encodeSDP(pc.localDescription);
+      $('tokOffer').value = tok;
+      $('sA1').querySelector('.step-t').textContent = 'TOKEN LISTO';
+      $('sA1').classList.remove('act');
+      $('sA1').classList.add('done');
+      $('sA2').classList.add('act');
+      setSt('WAITING PEER...', 'warn');
     }
 
-    async function completeAsInitiator() {
-      const tokenInput = $('tokenAnswerInput').value.trim();
-      if (!tokenInput) {
-        showToast('⚠ Pega el token de respuesta primero');
-        return;
-      }
-
+    async function finishA() {
+      const v = $('tokAnsIn').value.trim();
+      if (!v) { toast('pega el token primero'); return; }
       try {
-        const answer = decodeSDP(tokenInput);
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-
-        $('stepA2').querySelector('.step-title').textContent = '✅ Conectando...';
-        $('stepA2').classList.remove('active-step');
-        $('stepA2').classList.add('done');
-
-        setStatus('Conectando...', 'connecting');
-      } catch (err) {
-        showToast('❌ Token inválido. Verifica que lo has pegado completo.');
-        console.error('Error procesando answer:', err);
+        const ans = await decodeSDP(v);
+        await pc.setRemoteDescription(new RTCSessionDescription(ans));
+        $('sA2').querySelector('.step-t').textContent = 'CONECTANDO...';
+        $('sA2').classList.remove('act');
+        $('sA2').classList.add('done');
+        setSt('CONNECTING...', 'warn');
+      } catch {
+        toast('token inválido');
       }
     }
 
-    // ═══════════════════════════════════════════════
-    //  FLUJO: UNIRSE (Peer B / Receiver)
-    // ═══════════════════════════════════════════════
-    async function startAsReceiver() {
-      isInitiator = false;
-      $('btnRoleA').disabled = true;
-      $('btnRoleB').disabled = true;
-      $('flowReceiver').style.display = 'block';
-
-      setStatus('Esperando invitación...', 'connecting');
-
-      // Generar claves ECDH
-      await generateECDHKeys();
+    // ═══════════════════════════════════════
+    //  FLOW B — RECEIVER
+    // ═══════════════════════════════════════
+    async function initB() {
+      isInit = false;
+      $('btnA').disabled = true;
+      $('btnB').disabled = true;
+      $('flowB').style.display = 'block';
+      setSt('WAITING TOKEN...', 'warn');
+      await genKeys();
     }
 
-    async function processOffer() {
-      const tokenInput = $('tokenOfferInput').value.trim();
-      if (!tokenInput) {
-        showToast('⚠ Pega el token de invitación primero');
-        return;
-      }
-
+    async function processB() {
+      const v = $('tokOfferIn').value.trim();
+      if (!v) { toast('pega la invitación primero'); return; }
       try {
-        const offer = decodeSDP(tokenInput);
+        createPC();
+        pc.ondatachannel = e => setupDC(e.channel);
 
-        // Crear PeerConnection
-        createPeerConnection();
-
-        // Escuchar DataChannel del initiator
-        pc.ondatachannel = (event) => {
-          setupDataChannel(event.channel);
-        };
-
-        // Establecer offer remota
+        const offer = await decodeSDP(v);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-        // Crear answer
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
+        const ans = await pc.createAnswer();
+        await pc.setLocalDescription(ans);
+        await waitICE();
 
-        // Esperar ICE gathering
-        await waitForICEGathering();
+        const tok = await encodeSDP(pc.localDescription);
+        $('tokAnswer').value = tok;
 
-        // Mostrar token de respuesta
-        const token = encodeSDP(pc.localDescription);
-        $('tokenAnswer').value = token;
-
-        $('stepB1').classList.remove('active-step');
-        $('stepB1').classList.add('done');
-        $('stepB1').querySelector('.step-title').textContent = '✅ Invitación procesada';
-
-        $('stepB2').style.display = 'block';
-        $('stepB2').classList.add('active-step');
-
-        setStatus('Envía la respuesta y espera...', 'connecting');
-      } catch (err) {
-        showToast('❌ Token inválido. Verifica que lo has pegado completo.');
-        console.error('Error procesando offer:', err);
+        $('sB1').classList.remove('act');
+        $('sB1').classList.add('done');
+        $('sB1').querySelector('.step-t').textContent = 'PROCESADO';
+        $('sB2').style.display = 'block';
+        $('sB2').classList.add('act');
+        setSt('SEND ANSWER...', 'warn');
+      } catch {
+        toast('token inválido');
       }
     }
 
-    // ═══════════════════════════════════════════════
-    //  ENVIAR MENSAJE
-    // ═══════════════════════════════════════════════
-    async function sendMessage() {
-      const input = $('msgInput');
-      const text = input.value.trim();
-      if (!text || !sessionKey || !dataChannel || dataChannel.readyState !== 'open') return;
+    // ═══════════════════════════════════════
+    //  SEND MESSAGE
+    // ═══════════════════════════════════════
+    async function sendMsg() {
+      const inp = $('inp');
+      const txt = inp.value.trim();
+      if (!txt || !sessKey || !dc || dc.readyState !== 'open') return;
 
+      const id = `m${++msgCounter}-${Date.now()}`;
       try {
-        const encrypted = await encryptText(text);
-        dataChannel.send(JSON.stringify({
-          type: 'CHAT',
-          iv: encrypted.iv,
-          data: encrypted.data
-        }));
-
-        addMsg(text, 'local');
-        input.value = '';
-        input.focus();
+        const enc = await encrypt(txt);
+        const payload = { t: 'MSG', iv: enc.iv, d: enc.d, id };
+        if (ephemeral) payload.eph = ephSeconds;
+        dc.send(JSON.stringify(payload));
+        addChat(txt, 'out', id);
+        inp.value = '';
+        inp.focus();
       } catch (err) {
-        console.error('Error enviando mensaje:', err);
-        showToast('❌ Error al cifrar el mensaje');
+        console.error('send error:', err);
+        toast('error al cifrar');
       }
     }
 
-    // ═══════════════════════════════════════════════
-    //  EVENT LISTENERS
-    // ═══════════════════════════════════════════════
-    $('msgInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
+    // ═══════════════════════════════════════
+    //  EVENTS
+    // ═══════════════════════════════════════
+    $('inp').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
     });
+    $('inp').addEventListener('input', sendTyping);
+    document.addEventListener('gesturestart', e => e.preventDefault());
 
-    $('msgInput').addEventListener('input', notifyTyping);
-
-    // Prevenir zoom en iOS al hacer focus en input
-    document.addEventListener('gesturestart', (e) => e.preventDefault());
-
-    // Ajustar viewport en móvil cuando aparece el teclado
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', () => {
-        const msgs = $('messages');
-        if (msgs) msgs.scrollTop = msgs.scrollHeight;
-      });
+      window.visualViewport.addEventListener('resize', scrollDown);
     }
   </script>
 </body>
