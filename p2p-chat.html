@@ -312,6 +312,61 @@
     .sbtn:disabled { opacity: 0.2; cursor: not-allowed; }
     .sbtn:disabled:hover { background: transparent; }
 
+    /* ── TURN CONFIG ── */
+    .cfg-toggle {
+      font-size: 10px;
+      color: var(--text-dim);
+      cursor: pointer;
+      margin-top: 10px;
+      display: inline-block;
+    }
+    .cfg-toggle:hover { color: var(--amber); }
+    .cfg-panel {
+      display: none;
+      border: 1px solid var(--border);
+      padding: 10px;
+      margin-top: 8px;
+    }
+    .cfg-panel.on { display: block; }
+    .cfg-panel label {
+      font-size: 10px;
+      color: var(--text-dim);
+      display: block;
+      margin-bottom: 2px;
+      margin-top: 6px;
+    }
+    .cfg-panel input, .cfg-panel select {
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      outline: none;
+    }
+    .cfg-panel input:focus { border-color: var(--green-dim); }
+    .cfg-panel input::placeholder { color: var(--text-dim); }
+    .cfg-relay {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 10px;
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+    .cfg-relay input[type="checkbox"] {
+      width: auto;
+      accent-color: var(--amber);
+    }
+    .cfg-info {
+      font-size: 9px;
+      color: var(--text-dim);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
     /* ── RECONNECT PANEL ── */
     .recon-panel {
       display: none;
@@ -384,6 +439,20 @@
       <div class="btn-row">
         <button class="btn" id="btnA" onclick="initA()">[ CREAR SALA ]</button>
         <button class="btn btn-amber" id="btnB" onclick="initB()">[ UNIRSE ]</button>
+      </div>
+      <span class="cfg-toggle" onclick="toggleCfg()">[ ⚙ CONFIG RED ]</span>
+      <div class="cfg-panel" id="cfgPanel">
+        <label>TURN SERVER (para redes 4G/5G/corporativas):</label>
+        <input type="text" id="cfgTurnUrl" placeholder="turn:servidor:puerto  (ej: turn:relay.ejemplo.com:443)">
+        <label>USUARIO:</label>
+        <input type="text" id="cfgTurnUser" placeholder="usuario (opcional)">
+        <label>PASSWORD:</label>
+        <input type="password" id="cfgTurnPass" placeholder="contraseña (opcional)">
+        <label class="cfg-relay">
+          <input type="checkbox" id="cfgRelay">
+          FORZAR RELAY (ocultar IP — todo el tráfico pasa por TURN)
+        </label>
+        <p class="cfg-info">Sin TURN: conexión directa P2P (falla en redes con NAT simétrico: 4G/5G, hotspot, corporativas).<br>Con TURN: los datos pasan por el relay pero siguen cifrados E2E — el TURN no puede leer nada.</p>
       </div>
     </div>
 
@@ -503,13 +572,36 @@
     let ephemeral = true, ephSeconds = 30;
     let originalTitle = document.title, unreadCount = 0, hasFocus = true;
 
-    const STUN = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' }
-      ]
-    };
+    const STUN_SERVERS = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' }
+    ];
+
+    function getICEConfig() {
+      const servers = [...STUN_SERVERS];
+      const turnUrl = $('cfgTurnUrl').value.trim();
+      const turnUser = $('cfgTurnUser').value.trim();
+      const turnPass = $('cfgTurnPass').value.trim();
+      const forceRelay = $('cfgRelay').checked;
+
+      if (turnUrl) {
+        const turnEntry = { urls: turnUrl };
+        if (turnUser) turnEntry.username = turnUser;
+        if (turnPass) turnEntry.credential = turnPass;
+        servers.push(turnEntry);
+      }
+
+      const config = { iceServers: servers };
+      if (forceRelay && turnUrl) {
+        config.iceTransportPolicy = 'relay';
+      }
+      return config;
+    }
+
+    function toggleCfg() {
+      $('cfgPanel').classList.toggle('on');
+    }
 
     // ═══════════════════════════════════════
     //  UTILS
@@ -784,7 +876,7 @@
     }
 
     function createPC() {
-      pc = new RTCPeerConnection(STUN);
+      pc = new RTCPeerConnection(getICEConfig());
 
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
@@ -807,7 +899,13 @@
         } else if (st === 'failed') {
           setSt('FAILED', '');
           clearTimeout(reconTimer);
-          addSys('conexión fallida', 'err');
+          const hasTurn = $('cfgTurnUrl').value.trim();
+          if (!hasTurn) {
+            addSys('conexión directa fallida — red con NAT simétrico?', 'err');
+            addSys('configura un servidor TURN en ⚙ CONFIG RED y reintenta', 'wrn');
+          } else {
+            addSys('conexión fallida', 'err');
+          }
           tryReconnect();
         }
       };
