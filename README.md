@@ -63,6 +63,8 @@ Si la conexión directa falla:
 | **AES-256-GCM** | Cifra cada mensaje con un IV único de 96 bits. Incluye autenticación (AEAD) |
 | **HKDF-SHA256** | Deriva la clave simétrica a partir del secreto compartido ECDH |
 | **Fingerprint** | Hash SHA-256 del secreto compartido (8 primeros bytes). Verificación visual anti-MITM |
+| **Verificación SAS** | Secuencia de 7 emojis únicos derivados criptográficamente del secreto compartido para confirmación visual/verbal rápida |
+| **Anti-tampering** | Hash SHA-256 en tiempo real del código HTML de la aplicación para certificar que el archivo no ha sido alterado |
 
 ### Mensajes efímeros
 - Activado por defecto (30 segundos)
@@ -130,11 +132,25 @@ Transmisión P2P directa (UDP)
 
 ## 📋 Historial de Releases
 
+### v0.3 — Seguridad Avanzada (Fase 4)
+- 🛡️ **Verificación SAS (Short Authentication String)**: Emojis derivados de los bytes 8-14 del secreto compartido ECDH para comprobación visual anti-MITM.
+- 🔍 **Anti-tampering en tiempo real**: Cálculo y visualización automática del hash SHA-256 del código HTML para verificar integridad.
+- 🌐 **Soporte TURN dedicado y probado**: Despliegue de coturn propio en VPS con política zero-logs.
+
+### v0.24 — Servidor TURN Propio
+- Despliegue y configuración de `coturn` en VPS privado con política zero-logs.
+- Fichero de referencia rápida `turn-test.txt`.
+
+### v0.23 — Renombrado Oficial a PAWN
+- Rebranding completo de la aplicación a **`[ PAWN ]`**.
+
+### v0.22 — Documentación y Capturas
+- Creación de `README.md` exhaustivo con arquitectura, manual y capturas.
+
 ### v0.21 — Soporte TURN
 - Panel `[ ⚙ CONFIG RED ]` para configurar servidor TURN
 - Detección de NAT simétrico con mensaje informativo
 - Opción de forzar modo relay para ocultar IP
-- Ambos peers deben configurar el mismo TURN
 
 ### v0.2 — Fase 2 Completa
 - 🗜️ Compresión de tokens SDP (Deflate nativo, ~40-60% más cortos)
@@ -157,9 +173,10 @@ Transmisión P2P directa (UDP)
 ## 🗺️ Roadmap
 
 ### Fase 4 — Seguridad Avanzada
-- [ ] Verificación SAS (código/emojis para confirmar identidad anti-MITM)
-- [ ] Anti-tampering (hash de integridad del HTML)
-- [ ] Double Ratchet (forward secrecy — clave nueva por mensaje)
+- [x] Verificación SAS (código/emojis para confirmar identidad anti-MITM)
+- [x] Anti-tampering (hash de integridad del HTML)
+- [x] Relay TURN privado opcional (protección contra NAT simétrico y ocultación de IP)
+- [ ] Double Ratchet (forward secrecy — rotación per-message)
 
 ---
 
