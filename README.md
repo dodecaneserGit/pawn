@@ -1,4 +1,4 @@
-# [ P2P-E2EE ]
+# [ PAWN ]
 
 > Conexión directa. Cifrado extremo a extremo. Sin servidores. Sin logs. Sin rastro.
 
@@ -99,7 +99,7 @@ Si la conexión directa falla:
 - El servidor TURN **no puede leer los mensajes** — están cifrados con doble capa (AES-256-GCM + DTLS)
 
 ### Notificaciones
-- **Tab inactivo**: El título muestra `[3] [ P2P-E2EE ]` con el contador de mensajes no leídos
+- **Tab inactivo**: El título muestra `[3] [ PAWN ]` con el contador de mensajes no leídos
 - **Vibración**: Vibración breve en dispositivos móviles al recibir mensaje
 
 ---
