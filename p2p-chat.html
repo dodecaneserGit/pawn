@@ -427,6 +427,34 @@
       margin-bottom: 6px;
     }
 
+    /* ── DEBUG LOGS ── */
+    .dbg-toggle {
+      font-size: 10px;
+      color: var(--text-dim);
+      cursor: pointer;
+      margin-top: 10px;
+      display: inline-block;
+      margin-left: 10px;
+    }
+    .dbg-toggle:hover { color: var(--green); }
+    .dbg-box {
+      display: none;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 8px;
+      margin-top: 8px;
+      max-height: 140px;
+      overflow-y: auto;
+      font-size: 9px;
+      color: var(--cyan);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .dbg-box.on { display: block; }
+    .dbg-box .err { color: var(--red); }
+    .dbg-box .ok { color: var(--green); }
+    .dbg-box .wrn { color: var(--amber); }
+
     /* ── TOAST ── */
     .toast {
       position: fixed;
@@ -474,6 +502,8 @@
         <button class="btn btn-amber" id="btnB" onclick="initB()">[ UNIRSE ]</button>
       </div>
       <span class="cfg-toggle" onclick="toggleCfg()">[ ⚙ CONFIG RED ]</span>
+      <span class="dbg-toggle" onclick="toggleDbg()">[ 📋 DEBUG LOGS ]</span>
+      <div class="dbg-box" id="dbgBox">--- logs de diagnóstico WebRTC ---</div>
       <div class="cfg-panel" id="cfgPanel">
         <label>TURN SERVER (para redes 4G/5G/corporativas):</label>
         <input type="text" id="cfgTurnUrl" placeholder="turn:servidor:puerto  (ej: turn:relay.ejemplo.com:443)">
@@ -650,6 +680,24 @@
     function toggleCfg() {
       $('cfgPanel').classList.toggle('on');
     }
+
+    function toggleDbg() {
+      $('dbgBox').classList.toggle('on');
+    }
+
+    function dbg(msg, cls = '') {
+      console.log(`[PAWN-DBG] ${msg}`);
+      const b = $('dbgBox');
+      if (!b) return;
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = `[${ts()}] ${msg}`;
+      b.appendChild(line);
+      b.scrollTop = b.scrollHeight;
+    }
+
+    window.addEventListener('error', e => dbg(`ERR: ${e.message} (${e.filename}:${e.lineno})`, 'err'));
+    window.addEventListener('unhandledrejection', e => dbg(`REJECT: ${e.reason}`, 'err'));
 
     // ═══════════════════════════════════════
     //  UTILS
@@ -931,15 +979,20 @@
         const done = () => {
           if (!finished) {
             finished = true;
+            dbg(`ICE gathering finalizado (state: ${pc.iceGatheringState})`, 'ok');
             res();
           }
         };
 
         if (pc.iceGatheringState === 'complete') return done();
 
-        const timer = setTimeout(done, 6000); // 6s timeout max
+        const timer = setTimeout(() => {
+          dbg('ICE gathering timeout (6s) — procediendo con candidatos obtenidos', 'wrn');
+          done();
+        }, 6000);
 
         const fn = () => {
+          dbg(`ICE gathering state: ${pc.iceGatheringState}`);
           if (pc.iceGatheringState === 'complete') {
             pc.removeEventListener('icegatheringstatechange', fn);
             clearTimeout(timer);
@@ -948,7 +1001,13 @@
         };
         pc.addEventListener('icegatheringstatechange', fn);
         pc.onicecandidate = e => {
-          if (!e.candidate) {
+          if (e.candidate) {
+            const c = e.candidate;
+            const type = c.type || 'unknown';
+            const proto = c.protocol || 'udp';
+            dbg(`Candidato ICE: [${type.toUpperCase()}] ${proto} ${c.address || ''}:${c.port || ''}`, type === 'relay' ? 'ok' : '');
+          } else {
+            dbg('Fin de recolección de candidatos ICE local', 'ok');
             pc.removeEventListener('icegatheringstatechange', fn);
             clearTimeout(timer);
             done();
@@ -967,10 +1026,21 @@
     }
 
     function createPC() {
-      pc = new RTCPeerConnection(getICEConfig());
+      const iceCfg = getICEConfig();
+      dbg(`Creando RTCPeerConnection con ${iceCfg.iceServers.length} servidores ICE`);
+      pc = new RTCPeerConnection(iceCfg);
+
+      pc.onicecandidateerror = (e) => {
+        dbg(`ICE error: ${e.url} [${e.errorCode}] ${e.errorText}`, 'err');
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        dbg(`ICE Connection State: ${pc.iceConnectionState}`, pc.iceConnectionState === 'connected' ? 'ok' : 'wrn');
+      };
 
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
+        dbg(`PeerConnection State: ${st}`, st === 'connected' ? 'ok' : 'wrn');
         if (st === 'connected') {
           setSt('CONNECTED', 'warn');
           reconnectAttempts = 0;
@@ -979,7 +1049,6 @@
         } else if (st === 'disconnected') {
           setSt('DISCONNECTED', 'warn');
           addSys('conexión inestable — esperando...', 'wrn');
-          // Esperar 3s antes de intentar reconexión (los cortes breves se resuelven solos)
           clearTimeout(reconTimer);
           reconTimer = setTimeout(() => {
             if (pc && pc.connectionState === 'disconnected') {
@@ -1273,6 +1342,7 @@
       $('btnB').disabled = true;
       $('flowA').style.display = 'block';
       setSt('GENERATING...', 'warn');
+      dbg('Iniciando como creador de sala (Peer A)');
 
       await genKeys();
       createPC();
@@ -1280,6 +1350,7 @@
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      dbg('Offer local creada, esperando candidatos ICE...');
       await waitICE();
 
       const tok = await encodeSDP(pc.localDescription);
@@ -1289,19 +1360,24 @@
       $('sA1').classList.add('done');
       $('sA2').classList.add('act');
       setSt('WAITING PEER...', 'warn');
+      dbg(`Token de invitación generado (${tok.length} chars)`, 'ok');
     }
 
     async function finishA() {
       const v = $('tokAnsIn').value.trim();
       if (!v) { toast('pega el token primero'); return; }
       try {
+        dbg(`Decodificando token de respuesta (${v.length} chars)...`);
         const ans = await decodeSDP(v);
+        dbg('Aplicando setRemoteDescription (Answer)...');
         await pc.setRemoteDescription(new RTCSessionDescription(ans));
         $('sA2').querySelector('.step-t').textContent = 'CONECTANDO...';
         $('sA2').classList.remove('act');
         $('sA2').classList.add('done');
         setSt('CONNECTING...', 'warn');
-      } catch {
+        dbg('Remote description aplicada con éxito', 'ok');
+      } catch (err) {
+        dbg(`Error en finishA: ${err.message}`, 'err');
         toast('token inválido');
       }
     }
@@ -1315,6 +1391,7 @@
       $('btnB').disabled = true;
       $('flowB').style.display = 'block';
       setSt('WAITING TOKEN...', 'warn');
+      dbg('Iniciando como receptor (Peer B)');
       await genKeys();
     }
 
@@ -1322,14 +1399,20 @@
       const v = $('tokOfferIn').value.trim();
       if (!v) { toast('pega la invitación primero'); return; }
       try {
+        dbg(`Decodificando token de invitación (${v.length} chars)...`);
         createPC();
-        pc.ondatachannel = e => setupDC(e.channel);
+        pc.ondatachannel = e => {
+          dbg('DataChannel recibido del peer iniciador', 'ok');
+          setupDC(e.channel);
+        };
 
         const offer = await decodeSDP(v);
+        dbg('Aplicando setRemoteDescription (Offer)...');
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
         const ans = await pc.createAnswer();
         await pc.setLocalDescription(ans);
+        dbg('Answer local creada, esperando candidatos ICE...');
         await waitICE();
 
         const tok = await encodeSDP(pc.localDescription);
@@ -1341,7 +1424,9 @@
         $('sB2').style.display = 'block';
         $('sB2').classList.add('act');
         setSt('SEND ANSWER...', 'warn');
-      } catch {
+        dbg(`Token de respuesta generado (${tok.length} chars)`, 'ok');
+      } catch (err) {
+        dbg(`Error en processB: ${err.message}`, 'err');
         toast('token inválido');
       }
     }
