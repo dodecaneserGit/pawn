@@ -626,7 +626,15 @@
       const forceRelay = $('cfgRelay').checked;
 
       if (turnUrl) {
-        const turnEntry = { urls: turnUrl };
+        let urls = [turnUrl];
+        if (!turnUrl.includes('transport=')) {
+          urls = [
+            turnUrl,
+            turnUrl + (turnUrl.includes('?') ? '&' : '?') + 'transport=udp',
+            turnUrl + (turnUrl.includes('?') ? '&' : '?') + 'transport=tcp'
+          ];
+        }
+        const turnEntry = { urls };
         if (turnUser) turnEntry.username = turnUser;
         if (turnPass) turnEntry.credential = turnPass;
         servers.push(turnEntry);
@@ -919,18 +927,31 @@
 
     function waitICE() {
       return new Promise(res => {
-        if (pc.iceGatheringState === 'complete') return res();
+        let finished = false;
+        const done = () => {
+          if (!finished) {
+            finished = true;
+            res();
+          }
+        };
+
+        if (pc.iceGatheringState === 'complete') return done();
+
+        const timer = setTimeout(done, 6000); // 6s timeout max
+
         const fn = () => {
           if (pc.iceGatheringState === 'complete') {
             pc.removeEventListener('icegatheringstatechange', fn);
-            res();
+            clearTimeout(timer);
+            done();
           }
         };
         pc.addEventListener('icegatheringstatechange', fn);
         pc.onicecandidate = e => {
           if (!e.candidate) {
             pc.removeEventListener('icegatheringstatechange', fn);
-            res();
+            clearTimeout(timer);
+            done();
           }
         };
       });
