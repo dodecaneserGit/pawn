@@ -641,6 +641,7 @@
     let isInit = false, fp = '', sasCode = '', msgCounter = 0;
     let ephemeral = true, ephSeconds = 30;
     let sessionActive = false;
+    let heartbeatTimer = null;
     let originalTitle = document.title, unreadCount = 0, hasFocus = true;
 
     const STUN_SERVERS = [
@@ -1238,10 +1239,24 @@
         setSt('KEY EXCHANGE...', 'warn');
         reconnectAttempts = 0;
         dc.send(JSON.stringify({ t: 'KEY', k: await exportPub() }));
+
+        // Iniciar Heartbeat Keep-Alive cada 15 segundos para mantener abiertos los puertos NAT y el relay TURN
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(() => {
+          if (dc && dc.readyState === 'open') {
+            try {
+              dc.send(JSON.stringify({ t: 'PING' }));
+            } catch (e) {}
+          }
+        }, 15000);
       };
 
       dc.onclose = () => {
         dbg('DataChannel cerrado', 'wrn');
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer);
+          heartbeatTimer = null;
+        }
         if (sessionActive) {
           setSt('CLOSED', '');
           addSys('canal cerrado', 'wrn');
@@ -1258,6 +1273,17 @@
           const msg = JSON.parse(ev.data);
 
           switch (msg.t) {
+            case 'PING':
+              // Responder al ping silenciosamente para mantener la ruta activa en ambos sentidos
+              if (dc && dc.readyState === 'open') {
+                try { dc.send(JSON.stringify({ t: 'PONG' })); } catch (e) {}
+              }
+              break;
+
+            case 'PONG':
+              // Keep-alive confirmado
+              break;
+
             case 'KEY':
               await deriveKey(msg.k);
               onSecure();
