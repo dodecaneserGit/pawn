@@ -649,13 +649,22 @@
     ];
 
     function getICEConfig() {
-      const servers = [...STUN_SERVERS];
       const turnUrl = $('cfgTurnUrl').value.trim();
       const turnUser = $('cfgTurnUser').value.trim();
       const turnPass = $('cfgTurnPass').value.trim();
       const forceRelay = $('cfgRelay').checked;
 
+      const servers = [];
+
       if (turnUrl) {
+        // Extraer host/puerto del TURN para añadirlo también como STUN directo de máxima velocidad
+        const match = turnUrl.match(/^(?:turns?):([^:/?#]+)(?::(\d+))?/);
+        if (match) {
+          const host = match[1];
+          const port = match[2] || '3478';
+          servers.push({ urls: `stun:${host}:${port}` });
+        }
+
         let urls = [turnUrl];
         if (!turnUrl.includes('transport=')) {
           urls = [
@@ -669,6 +678,9 @@
         if (turnPass) turnEntry.credential = turnPass;
         servers.push(turnEntry);
       }
+
+      // Añadir STUN públicos como fallback
+      servers.push(...STUN_SERVERS);
 
       const config = { iceServers: servers };
       if (forceRelay && turnUrl) {
@@ -976,40 +988,54 @@
     function waitICE() {
       return new Promise(res => {
         let finished = false;
+        let relayFound = false;
+        let relayGraceTimer = null;
+
         const done = () => {
           if (!finished) {
             finished = true;
-            dbg(`ICE gathering finalizado (state: ${pc.iceGatheringState})`, 'ok');
+            clearTimeout(fallbackTimer);
+            if (relayGraceTimer) clearTimeout(relayGraceTimer);
+            dbg(`ICE gathering finalizado (state: ${pc.iceGatheringState}, relay: ${relayFound ? 'SI' : 'NO'})`, 'ok');
             res();
           }
         };
 
         if (pc.iceGatheringState === 'complete') return done();
 
-        const timer = setTimeout(() => {
-          dbg('ICE gathering timeout (6s) — procediendo con candidatos obtenidos', 'wrn');
+        const hasTurn = !!$('cfgTurnUrl').value.trim();
+        // Si hay TURN configurado, dar margen suficiente (12s) para no cortar la obtención del candidato relay
+        const fallbackTimer = setTimeout(() => {
+          dbg('ICE gathering timeout — procediendo con los candidatos obtenidos', 'wrn');
           done();
-        }, 6000);
+        }, hasTurn ? 12000 : 6000);
 
         const fn = () => {
           dbg(`ICE gathering state: ${pc.iceGatheringState}`);
           if (pc.iceGatheringState === 'complete') {
             pc.removeEventListener('icegatheringstatechange', fn);
-            clearTimeout(timer);
             done();
           }
         };
         pc.addEventListener('icegatheringstatechange', fn);
+
         pc.onicecandidate = e => {
           if (e.candidate) {
             const c = e.candidate;
             const type = c.type || 'unknown';
             const proto = c.protocol || 'udp';
-            dbg(`Candidato ICE: [${type.toUpperCase()}] ${proto} ${c.address || ''}:${c.port || ''}`, type === 'relay' ? 'ok' : '');
+            const isRelay = type === 'relay';
+            dbg(`Candidato ICE: [${type.toUpperCase()}] ${proto} ${c.address || ''}:${c.port || ''}`, isRelay ? 'ok' : '');
+
+            if (isRelay && !relayFound) {
+              relayFound = true;
+              dbg('¡Candidato RELAY obtenido con éxito! Cerrando recolección en 500ms...', 'ok');
+              // Una vez obtenido el relay, no necesitamos esperar a timeouts de STUN públicos
+              relayGraceTimer = setTimeout(done, 500);
+            }
           } else {
             dbg('Fin de recolección de candidatos ICE local', 'ok');
             pc.removeEventListener('icegatheringstatechange', fn);
-            clearTimeout(timer);
             done();
           }
         };
