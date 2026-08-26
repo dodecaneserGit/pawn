@@ -871,13 +871,84 @@
       hasFocus = true;
       unreadCount = 0;
       document.title = originalTitle;
+      sendPing();
     });
     window.addEventListener('blur', () => { hasFocus = false; });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        hasFocus = true;
+        unreadCount = 0;
+        document.title = originalTitle;
+        dbg('Pestaña en primer plano — verificando enlace activo...');
+        sendPing();
+      }
+    });
 
     function notifyTab() {
       if (hasFocus) return;
       unreadCount++;
       document.title = `[${unreadCount}] ${originalTitle}`;
+    }
+
+    // ═══════════════════════════════════════
+    //  HEARTBEAT ENGINE (Web Worker — sin throttling en background)
+    // ═══════════════════════════════════════
+    let heartbeatWorker = null;
+
+    function initHeartbeatWorker() {
+      if (heartbeatWorker) return;
+      try {
+        const workerBlob = new Blob([`
+          let t = null;
+          self.onmessage = e => {
+            if (e.data === 'start') {
+              if (t) clearInterval(t);
+              t = setInterval(() => self.postMessage('tick'), 10000);
+            } else if (e.data === 'stop') {
+              if (t) clearInterval(t);
+              t = null;
+            }
+          };
+        `], { type: 'application/javascript' });
+        heartbeatWorker = new Worker(URL.createObjectURL(workerBlob));
+        heartbeatWorker.onmessage = () => {
+          sendPing();
+        };
+        dbg('Heartbeat Worker inicializado (hilo independiente en segundo plano)', 'ok');
+      } catch (err) {
+        dbg(`Web Worker no disponible, fallback a timer estándar: ${err.message}`, 'wrn');
+      }
+    }
+
+    function startHeartbeat() {
+      initHeartbeatWorker();
+      if (heartbeatWorker) {
+        heartbeatWorker.postMessage('start');
+      } else {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        heartbeatTimer = setInterval(sendPing, 10000);
+      }
+      dbg('Heartbeat activo (intervalo: 10s)');
+    }
+
+    function stopHeartbeat() {
+      if (heartbeatWorker) {
+        heartbeatWorker.postMessage('stop');
+      }
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+      dbg('Heartbeat detenido');
+    }
+
+    function sendPing() {
+      if (dc && dc.readyState === 'open') {
+        try {
+          dc.send(JSON.stringify({ t: 'PING' }));
+        } catch (e) {}
+      }
     }
 
     // ═══════════════════════════════════════
@@ -1410,23 +1481,13 @@
         reconnectAttempts = 0;
         dc.send(JSON.stringify({ t: 'KEY', k: await exportPub() }));
 
-        // Iniciar Heartbeat Keep-Alive cada 15 segundos para mantener abiertos los puertos NAT y el relay TURN
-        if (heartbeatTimer) clearInterval(heartbeatTimer);
-        heartbeatTimer = setInterval(() => {
-          if (dc && dc.readyState === 'open') {
-            try {
-              dc.send(JSON.stringify({ t: 'PING' }));
-            } catch (e) {}
-          }
-        }, 15000);
+        // Iniciar Heartbeat Keep-Alive (10s) vía Web Worker
+        startHeartbeat();
       };
 
       dc.onclose = () => {
         dbg('DataChannel cerrado', 'wrn');
-        if (heartbeatTimer) {
-          clearInterval(heartbeatTimer);
-          heartbeatTimer = null;
-        }
+        stopHeartbeat();
         if (sessionActive) {
           setSt('CLOSED', '');
           addSys('canal cerrado', 'wrn');
