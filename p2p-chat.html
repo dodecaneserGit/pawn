@@ -867,10 +867,29 @@
     // ═══════════════════════════════════════
     //  TAB NOTIFICATIONS
     // ═══════════════════════════════════════
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+      if ('wakeLock' in navigator && sessionActive) {
+        try {
+          if (!wakeLock || wakeLock.released) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            dbg('Screen Wake Lock activo (evita que la pantalla se apague)', 'ok');
+            wakeLock.addEventListener('release', () => {
+              dbg('Screen Wake Lock liberado por el sistema');
+            });
+          }
+        } catch (err) {
+          dbg(`Wake Lock no disponible: ${err.message}`, 'wrn');
+        }
+      }
+    }
+
     window.addEventListener('focus', () => {
       hasFocus = true;
       unreadCount = 0;
       document.title = originalTitle;
+      requestWakeLock();
       sendPing();
     });
     window.addEventListener('blur', () => { hasFocus = false; });
@@ -880,8 +899,13 @@
         hasFocus = true;
         unreadCount = 0;
         document.title = originalTitle;
-        dbg('Pestaña en primer plano — verificando enlace activo...');
+        dbg('Pestaña en primer plano — verificando y reanudando enlace WebRTC...');
+        requestWakeLock();
         sendPing();
+        // Si estaba en estado disconnected, forzar comprobación suave
+        if (pc && pc.connectionState === 'disconnected') {
+          dbg('Reanudando tráfico tras reposo de pantalla...');
+        }
       }
     });
 
@@ -1315,20 +1339,21 @@
           reconnectAttempts = 0;
           clearTimeout(reconTimer);
           hideReconPanel();
+          dbg('¡Enlace WebRTC activo y conectado!', 'ok');
         } else if (st === 'disconnected') {
           if (!sessionActive) {
             dbg('PeerConnection disconnected durante handshake previo — esperando establecimiento', 'wrn');
             return;
           }
-          setSt('DISCONNECTED', 'warn');
-          addSys('conexión inestable — esperando...', 'wrn');
+          setSt('PAUSED', 'warn');
+          dbg('PeerConnection en reposo / latencia temporal — esperando reanudación...', 'wrn');
           clearTimeout(reconTimer);
           reconTimer = setTimeout(() => {
-            if (pc && pc.connectionState === 'disconnected' && sessionActive) {
-              addSys('conexión perdida — intentando reconectar...', 'wrn');
+            if (pc && (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') && sessionActive && !document.hidden) {
+              addSys('enlace inactivo tras reposo — verificando reconexión...', 'wrn');
               tryReconnect();
             }
-          }, 3000);
+          }, 15000);
         } else if (st === 'failed') {
           if (!sessionActive) {
             dbg('PeerConnection failed durante handshake previo — esperando a que el peer aplique el answer', 'wrn');
@@ -1336,8 +1361,12 @@
           }
           setSt('FAILED', '');
           clearTimeout(reconTimer);
-          addSys('conexión fallida', 'err');
-          tryReconnect();
+          reconTimer = setTimeout(() => {
+            if (pc && pc.connectionState === 'failed' && sessionActive && !document.hidden) {
+              addSys('conexión fallida — iniciando reconexión...', 'err');
+              tryReconnect();
+            }
+          }, 6000);
         }
       };
     }
@@ -1614,6 +1643,7 @@
       reconnectAttempts = 0;
 
       enable();
+      requestWakeLock();
       addSys('cifrado activo — Double Ratchet (Forward Secrecy + Break-in Recovery)', 'ok');
       addSys('fingerprint: ' + fp, 'ok');
       addSys('SAS: ' + sasCode, 'ok');
