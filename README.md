@@ -195,4 +195,14 @@ Transmisión P2P directa (UDP / TURN Relay)
 
 ## 📜 Licencia
 
-Proyecto de código abierto bajo filosofía de privacidad absoluta y cero servidores.
+Este proyecto está bajo la licencia **GNU General Public License v3.0 (GPLv3)**. Consulta el archivo [LICENSE](LICENSE) para más detalles.
+
+```
+[ PAWN ] - Peer-to-Peer Encrypted Zero-Server Chat
+Copyright (C) 2026 David Osuna Calle (dodecaneser)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+```
