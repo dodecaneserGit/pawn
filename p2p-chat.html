@@ -640,6 +640,7 @@
     let pc = null, dc = null, keys = null, sessKey = null;
     let isInit = false, fp = '', sasCode = '', msgCounter = 0;
     let ephemeral = true, ephSeconds = 30;
+    let sessionActive = false;
     let originalTitle = document.title, unreadCount = 0, hasFocus = true;
 
     const STUN_SERVERS = [
@@ -1073,25 +1074,27 @@
           clearTimeout(reconTimer);
           hideReconPanel();
         } else if (st === 'disconnected') {
+          if (!sessionActive) {
+            dbg('PeerConnection disconnected durante handshake previo — esperando establecimiento', 'wrn');
+            return;
+          }
           setSt('DISCONNECTED', 'warn');
           addSys('conexión inestable — esperando...', 'wrn');
           clearTimeout(reconTimer);
           reconTimer = setTimeout(() => {
-            if (pc && pc.connectionState === 'disconnected') {
+            if (pc && pc.connectionState === 'disconnected' && sessionActive) {
               addSys('conexión perdida — intentando reconectar...', 'wrn');
               tryReconnect();
             }
           }, 3000);
         } else if (st === 'failed') {
+          if (!sessionActive) {
+            dbg('PeerConnection failed durante handshake previo — esperando a que el peer aplique el answer', 'wrn');
+            return;
+          }
           setSt('FAILED', '');
           clearTimeout(reconTimer);
-          const hasTurn = $('cfgTurnUrl').value.trim();
-          if (!hasTurn) {
-            addSys('conexión directa fallida — red con NAT simétrico?', 'err');
-            addSys('configura un servidor TURN en ⚙ CONFIG RED y reintenta', 'wrn');
-          } else {
-            addSys('conexión fallida', 'err');
-          }
+          addSys('conexión fallida', 'err');
           tryReconnect();
         }
       };
@@ -1231,15 +1234,23 @@
       dc = ch;
 
       dc.onopen = async () => {
+        dbg('DataChannel abierto exitosamente!', 'ok');
         setSt('KEY EXCHANGE...', 'warn');
         reconnectAttempts = 0;
         dc.send(JSON.stringify({ t: 'KEY', k: await exportPub() }));
       };
 
       dc.onclose = () => {
-        setSt('CLOSED', '');
-        addSys('canal cerrado', 'wrn');
-        disable();
+        dbg('DataChannel cerrado', 'wrn');
+        if (sessionActive) {
+          setSt('CLOSED', '');
+          addSys('canal cerrado', 'wrn');
+          disable();
+        }
+      };
+
+      dc.onerror = (err) => {
+        dbg(`DataChannel error: ${err && err.message ? err.message : 'error'}`, 'err');
       };
 
       dc.onmessage = async (ev) => {
@@ -1324,6 +1335,8 @@
     }
 
     function onSecure() {
+      sessionActive = true;
+      dbg('Sesión cifrada E2EE completamente establecida', 'ok');
       $('scrSetup').classList.remove('active');
       $('scrChat').classList.add('active');
 
