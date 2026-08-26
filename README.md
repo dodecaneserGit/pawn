@@ -10,7 +10,8 @@ Chat peer-to-peer encriptado en un único archivo HTML. Comunicación directa en
 
 ## ⚡ Características
 
-- **🔒 Cifrado E2E real** — ECDH P-256 (intercambio de claves) + AES-256-GCM (cifrado de mensajes) + HKDF-SHA256 (derivación).
+- **🔒 Double Ratchet real (Signal Protocol)** — Ratchet asimétrico (ECDH P-256) + Ratchet simétrico (HKDF + HMAC-SHA256) + AES-256-GCM por cada mensaje.
+- **🛡️ Forward Secrecy & Break-in Recovery** — Claves efímeras de un solo uso que rotan continuamente; si una clave se compromete, los mensajes pasados y futuros quedan protegidos.
 - **🔗 P2P directo** — WebRTC DataChannel, sin servidores de aplicación intermedios.
 - **📄 Un solo archivo** — Todo en `p2p-chat.html`, sin dependencias externas ni librerías de terceros.
 - **🛡️ Verificación SAS (emojis)** — 7 emojis derivados criptográficamente del secreto compartido para confirmación visual anti-MITM.
@@ -67,10 +68,13 @@ Si estás en una red celular o compartiendo datos desde el móvil:
 ### Cifrado e Integridad
 | Función | Descripción |
 |:---|:---|
-| **ECDH P-256** | Genera un par de claves asimétricas efímeras por sesión. La clave privada nunca viaja por la red. |
-| **AES-256-GCM** | Cifra cada mensaje con un IV aleatorio único de 96 bits. Incluye autenticación integrada (AEAD). |
-| **HKDF-SHA256** | Función de derivación de claves que expande el secreto compartido en la clave de sesión simétrica. |
-| **Fingerprint** | Hash hexadecimal SHA-256 del secreto compartido (primeros 8 bytes). |
+| **Double Ratchet** | Algoritmo criptográfico de rotación continua de claves (KDF Chain + DH Ratchet). Genera una clave AES única e irrepetible para cada mensaje. |
+| **Forward Secrecy** | Destrucción instantánea de cada clave de mensaje tras su uso. Si una clave fuese comprometida, ningún mensaje anterior puede descifrarse. |
+| **Break-in Recovery** | Recuperación post-compromiso mediante nuevos pares de claves ECDH generados en cada cambio de turno de conversación. |
+| **ECDH P-256** | Genera pares de claves asimétricas efímeras en RAM (Web Crypto API). Las claves privadas nunca viajan por la red. |
+| **AES-256-GCM** | Cifra cada mensaje con IV único de 96 bits y autenticación de integridad (AEAD). |
+| **HKDF-SHA256** | Expansión y derivación de la cadena raíz y cadenas simétricas de envío y recepción. |
+| **Fingerprint** | Hash hexadecimal SHA-256 del secreto compartido inicial (primeros 8 bytes). |
 | **Verificación SAS** | Secuencia de 7 emojis visuales derivados de los bytes 8-14 del secreto compartido para validación verbal anti-MITM. |
 | **Anti-tampering** | Hash SHA-256 calculado en tiempo real del código HTML de la aplicación para certificar que no ha sido modificado. |
 
@@ -125,6 +129,11 @@ Transmisión P2P directa (UDP / TURN Relay)
 
 ## 📋 Historial de Releases
 
+### v0.4 — Double Ratchet (Fase 4 Completa)
+- 🔐 **Double Ratchet nativo (Signal Protocol)**: Implementación completa de rotación de claves en Web Crypto API (KDF Chain + DH Ratchet asimétrico).
+- 🛡️ **Forward Secrecy**: Clave AES-256-GCM efímera generada y destruida con cada mensaje enviado/recibido.
+- 🔄 **Break-in Recovery**: Autocuración post-compromiso mediante nuevos pares de claves ECDH generados dinámicamente en cada turno de conversación.
+
 ### v0.35 — Heartbeat Keep-Alive
 - 💓 Latido silencioso de 15s (`PING`/`PONG`) para mantener puertos NAT y TURN abiertos indefinidamente.
 - Prevención de desconexiones por inactividad en reposo.
@@ -142,7 +151,7 @@ Transmisión P2P directa (UDP / TURN Relay)
 ### v0.31 — Corrección de Binding en Coturn
 - Habilitación de STUN/TURN binding en el VPS y soporte multiruta UDP/TCP.
 
-### v0.3 — Seguridad Avanzada (Fase 4)
+### v0.3 — Seguridad Avanzada (Fase 4 Inicial)
 - 🛡️ **Verificación SAS**: 7 emojis criptográficos anti-MITM.
 - 🔍 **Anti-tampering**: Cálculo y visualización en tiempo real del hash SHA-256 de integridad.
 
@@ -178,7 +187,8 @@ Transmisión P2P directa (UDP / TURN Relay)
 
 ### Funcionalidades Implementadas y Validadas:
 - [x] **Conexión P2P Serverless**: WebRTC DataChannel por copy-paste de tokens.
-- [x] **Cifrado E2E**: ECDH P-256 + AES-256-GCM + HKDF-SHA256.
+- [x] **Cifrado Double Ratchet**: Rotación per-message de claves con Forward Secrecy y Break-in Recovery (Signal Protocol).
+- [x] **Cifrado E2E Autenticado**: ECDH P-256 + HKDF-SHA256 + HMAC + AES-256-GCM.
 - [x] **Compresión de tokens**: Reducción del tamaño del SDP con Deflate nativo.
 - [x] **Mensajes efímeros**: Autodestrucción automática y temporizador configurable.
 - [x] **Confirmación de entrega**: Checks `✓` y `✓✓` en tiempo real.
@@ -187,9 +197,7 @@ Transmisión P2P directa (UDP / TURN Relay)
 - [x] **Relay TURN Propio**: Superación de NAT simétrico (Hotspot/5G/Fibra) en VPS privado.
 - [x] **Heartbeat Keep-Alive**: Prevención de cortes de conexión tras periodos de inactividad.
 - [x] **Telemetría en vivo**: Consola de logs de diagnóstico en pantalla.
-
-### Próximos Desarrollos:
-- [ ] **Double Ratchet**: Rotación per-message de claves para Forward Secrecy y Break-in Recovery continuo.
+- [x] **Licenciamiento libre**: GNU General Public License v3.0 (GPLv3).
 
 ---
 

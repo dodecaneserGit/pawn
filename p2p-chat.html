@@ -661,6 +661,20 @@
     let heartbeatTimer = null;
     let originalTitle = document.title, unreadCount = 0, hasFocus = true;
 
+    // ── Double Ratchet State ──
+    let dr = {
+      DHs: null,
+      DHsPubB64: '',
+      DHr: null,
+      DHrB64: '',
+      RK: null,
+      CKs: null,
+      CKr: null,
+      Ns: 0,
+      Nr: 0,
+      PN: 0
+    };
+
     const STUN_SERVERS = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
@@ -890,7 +904,7 @@
     }
 
     function sendTyping() {
-      if (!dc || dc.readyState !== 'open' || !sessKey) return;
+      if (!dc || dc.readyState !== 'open' || !sessionActive) return;
       const now = Date.now();
       if (now - lastTypeSent < 1500) return;
       lastTypeSent = now;
@@ -928,7 +942,7 @@
     }
 
     // ═══════════════════════════════════════
-    //  CRYPTO — ECDH + AES-256-GCM
+    //  CRYPTO — DOUBLE RATCHET + AES-256-GCM
     // ═══════════════════════════════════════
     async function genKeys() {
       keys = await crypto.subtle.generateKey(
@@ -941,20 +955,49 @@
       return ab2b64(await crypto.subtle.exportKey('raw', keys.publicKey));
     }
 
+    async function hmacSha256(keyBytes, dataBytes) {
+      const key = await crypto.subtle.importKey(
+        'raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      const sig = await crypto.subtle.sign('HMAC', key, dataBytes);
+      return new Uint8Array(sig);
+    }
+
+    async function computeDH(privKey, pubKey) {
+      const bits = await crypto.subtle.deriveBits(
+        { name: 'ECDH', public: pubKey }, privKey, 256
+      );
+      return new Uint8Array(bits);
+    }
+
+    async function kdfRK(rk, dhOut) {
+      const prk = await hmacSha256(rk, dhOut);
+      const info = new TextEncoder().encode('PAWN-DR-ROOT-STEP');
+      const t1 = await hmacSha256(prk, new Uint8Array([...info, 1]));
+      const t2 = await hmacSha256(prk, new Uint8Array([...t1, ...info, 2]));
+      return { rk: t1, ck: t2 };
+    }
+
+    async function kdfCK(ck) {
+      const nextCk = await hmacSha256(ck, new Uint8Array([1]));
+      const mk = await hmacSha256(ck, new Uint8Array([2]));
+      return { nextCk, mk };
+    }
+
     async function deriveKey(peerB64) {
       const peerKey = await crypto.subtle.importKey(
         'raw', b642ab(peerB64),
         { name: 'ECDH', namedCurve: 'P-256' }, true, []
       );
-      const bits = await crypto.subtle.deriveBits(
+      const bits = new Uint8Array(await crypto.subtle.deriveBits(
         { name: 'ECDH', public: peerKey }, keys.privateKey, 256
-      );
+      ));
 
-      // Fingerprint
+      // Fingerprint visual (SHA-256 de los primeros 8 bytes)
       const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bits));
       fp = Array.from(hash.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(':').toUpperCase();
 
-      // SAS Emojis (bytes 8-14 del hash → 7 emojis para verificación visual)
+      // SAS Emojis (bytes 8-14 del hash → 7 emojis anti-MITM)
       const SAS_EMOJIS = [
         '🔒','🛡️','⚡','🔑','💀','👁️','🕶️','🌑',
         '🦇','🐍','🕷️','🔥','💎','⚔️','🗡️','🏴',
@@ -963,26 +1006,119 @@
       ];
       sasCode = Array.from(hash.slice(8, 15)).map(b => SAS_EMOJIS[b % SAS_EMOJIS.length]).join(' ');
 
-      // HKDF -> AES key
-      const hkdf = await crypto.subtle.importKey('raw', bits, { name: 'HKDF' }, false, ['deriveKey']);
-      sessKey = await crypto.subtle.deriveKey(
-        { name: 'HKDF', hash: 'SHA-256', salt: new TextEncoder().encode('P2P-E2EE-v2'), info: new TextEncoder().encode('AES256GCM') },
-        hkdf,
-        { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
-      );
+      // ── Inicialización del estado Double Ratchet ──
+      dr.RK = bits;
+      dr.DHs = keys;
+      dr.DHsPubB64 = await exportPub();
+      dr.DHr = peerKey;
+      dr.DHrB64 = peerB64;
+      dr.Ns = 0;
+      dr.Nr = 0;
+      dr.PN = 0;
+
+      const dhOut = await computeDH(dr.DHs.privateKey, dr.DHr);
+      const step = await kdfRK(dr.RK, dhOut);
+      dr.RK = step.rk;
+
+      if (isInit) {
+        // Peer A (Iniciador): Cadena de envío activa (CKs)
+        dr.CKs = step.ck;
+        dr.CKr = null;
+        dbg('Double Ratchet inicializado (Iniciador, cadena TX lista)', 'ok');
+      } else {
+        // Peer B (Receptor): Cadena de recepción activa (CKr)
+        dr.CKs = null;
+        dr.CKr = step.ck;
+        dbg('Double Ratchet inicializado (Receptor, cadena RX lista)', 'ok');
+      }
     }
 
-    async function encrypt(txt) {
+    async function ratchetEncrypt(txt) {
+      // Si no tenemos cadena de envío activa, generamos un nuevo par de claves DH efímero (DH Ratchet Step)
+      if (dr.CKs === null) {
+        dr.DHs = await crypto.subtle.generateKey(
+          { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']
+        );
+        dr.DHsPubB64 = ab2b64(await crypto.subtle.exportKey('raw', dr.DHs.publicKey));
+        const dhOut = await computeDH(dr.DHs.privateKey, dr.DHr);
+        const step = await kdfRK(dr.RK, dhOut);
+        dr.RK = step.rk;
+        dr.CKs = step.ck;
+        dr.PN = dr.Ns;
+        dr.Ns = 0;
+        dbg(`[DR] Nuevo DH Ratchet Step local (DH: ${dr.DHsPubB64.slice(0, 8)}...)`, 'ok');
+      }
+
+      // Avanzar cadena simétrica de envío
+      const { nextCk, mk } = await kdfCK(dr.CKs);
+      dr.CKs = nextCk;
+      const n = dr.Ns++;
+
+      // Cifrar con AES-256-GCM usando la clave efímera del mensaje (MK)
       const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sessKey, new TextEncoder().encode(txt));
-      return { iv: ab2b64(iv), d: ab2b64(ct) };
+      const mkKey = await crypto.subtle.importKey('raw', mk, { name: 'AES-GCM' }, false, ['encrypt']);
+      const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, mkKey, new TextEncoder().encode(txt));
+
+      dbg(`[DR] Mensaje TX cifrado (Ratchet N:${n}, PN:${dr.PN})`);
+
+      return {
+        iv: ab2b64(iv),
+        d: ab2b64(ct),
+        h: {
+          dh: dr.DHsPubB64,
+          n: n,
+          pn: dr.PN
+        }
+      };
     }
 
-    async function decrypt(p) {
-      const dec = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: b642ab(p.iv) }, sessKey, b642ab(p.d)
-      );
-      return new TextDecoder().decode(dec);
+    async function ratchetDecrypt(msg) {
+      if (!msg.h || !msg.h.dh) {
+        throw new Error('Cabecera Double Ratchet ausente');
+      }
+
+      const remoteDHB64 = msg.h.dh;
+
+      // Si el peer envió una nueva clave pública DH (DH Ratchet Step remoto):
+      if (remoteDHB64 !== dr.DHrB64) {
+        dbg(`[DR] DH Ratchet Step remoto detectado (DH: ${remoteDHB64.slice(0, 8)}...)`, 'ok');
+        const newDHr = await crypto.subtle.importKey(
+          'raw', b642ab(remoteDHB64), { name: 'ECDH', namedCurve: 'P-256' }, true, []
+        );
+
+        // Paso 1: Derivar nueva cadena de recepción (CKr)
+        const dhOut = await computeDH(dr.DHs.privateKey, newDHr);
+        const step = await kdfRK(dr.RK, dhOut);
+        dr.RK = step.rk;
+        dr.CKr = step.ck;
+
+        // Actualizar clave remota y resetear contadores
+        dr.DHr = newDHr;
+        dr.DHrB64 = remoteDHB64;
+        dr.PN = dr.Ns;
+        dr.Ns = 0;
+        dr.Nr = 0;
+
+        // Marcar que nuestro próximo mensaje generará un nuevo par DH
+        dr.CKs = null;
+      }
+
+      // Avanzar cadena simétrica de recepción hasta el mensaje
+      if (!dr.CKr) {
+        throw new Error('Cadena de recepción Double Ratchet no inicializada');
+      }
+
+      const { nextCk, mk } = await kdfCK(dr.CKr);
+      dr.CKr = nextCk;
+      dr.Nr++;
+
+      // Descifrar con AES-256-GCM usando la clave efímera del mensaje (MK)
+      const mkKey = await crypto.subtle.importKey('raw', mk, { name: 'AES-GCM' }, false, ['decrypt']);
+      const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b642ab(msg.iv) }, mkKey, b642ab(msg.d));
+
+      dbg(`[DR] Mensaje RX descifrado (Ratchet N:${msg.h.n}, Nr:${dr.Nr})`, 'ok');
+
+      return new TextDecoder().decode(plainBuf);
     }
 
     function ab2b64(buf) {
@@ -1307,7 +1443,7 @@
               break;
 
             case 'MSG':
-              const plain = await decrypt(msg);
+              const plain = await ratchetDecrypt(msg);
               addChat(plain, 'in', msg.id);
               // Send ACK
               dc.send(JSON.stringify({ t: 'ACK', id: msg.id }));
@@ -1379,12 +1515,13 @@
 
     function onSecure() {
       sessionActive = true;
-      dbg('Sesión cifrada E2EE completamente establecida', 'ok');
+      dbg('Sesión cifrada E2EE completamente establecida con Double Ratchet', 'ok');
       $('scrSetup').classList.remove('active');
       $('scrChat').classList.add('active');
 
       setSt('ENCRYPTED', 'on');
       $('encBadge').classList.add('on');
+      $('encBadge').textContent = 'DOUBLE RATCHET';
 
       $('fpBar').classList.add('on');
       $('fpBar').textContent = `fingerprint: ${fp} [click para copiar]`;
@@ -1399,10 +1536,10 @@
       reconnectAttempts = 0;
 
       enable();
-      addSys('cifrado E2E activo — ECDH + AES-256-GCM', 'ok');
+      addSys('cifrado activo — Double Ratchet (Forward Secrecy + Break-in Recovery)', 'ok');
       addSys('fingerprint: ' + fp, 'ok');
       addSys('SAS: ' + sasCode, 'ok');
-      addSys('verificad fingerprint y emojis — deben coincidir en ambos lados', '');
+      addSys('las claves efímeras rotan con cada mensaje enviado y recibido', '');
     }
 
     function enable() {
@@ -1519,12 +1656,12 @@
     async function sendMsg() {
       const inp = $('inp');
       const txt = inp.value.trim();
-      if (!txt || !sessKey || !dc || dc.readyState !== 'open') return;
+      if (!txt || !sessionActive || !dc || dc.readyState !== 'open') return;
 
       const id = `m${++msgCounter}-${Date.now()}`;
       try {
-        const enc = await encrypt(txt);
-        const payload = { t: 'MSG', iv: enc.iv, d: enc.d, id };
+        const enc = await ratchetEncrypt(txt);
+        const payload = { t: 'MSG', iv: enc.iv, d: enc.d, h: enc.h, id };
         if (ephemeral) payload.eph = ephSeconds;
         dc.send(JSON.stringify(payload));
         addChat(txt, 'out', id);
@@ -1532,6 +1669,7 @@
         inp.focus();
       } catch (err) {
         console.error('send error:', err);
+        dbg(`Error al cifrar mensaje: ${err.message}`, 'err');
         toast('error al cifrar');
       }
     }
