@@ -527,11 +527,11 @@
           <button class="btn" style="font-size:10px;padding:4px 8px;color:var(--text-dim)" onclick="clearTurnCfg()">[ LIMPIAR ]</button>
         </div>
         <label>TURN SERVER (para redes 4G/5G/corporativas):</label>
-        <input type="text" id="cfgTurnUrl" placeholder="turn:servidor:puerto  (ej: turn:relay.ejemplo.com:443)">
+        <input type="text" id="cfgTurnUrl" value="turn:tu-servidor-turn.com:3478" placeholder="turn:servidor:puerto">
         <label>USUARIO:</label>
-        <input type="text" id="cfgTurnUser" placeholder="usuario (opcional)">
+        <input type="text" id="cfgTurnUser" value="pawn" placeholder="usuario (opcional)">
         <label>PASSWORD:</label>
-        <input type="password" id="cfgTurnPass" placeholder="contraseña (opcional)">
+        <input type="password" id="cfgTurnPass" value="tu_password" placeholder="contraseña (opcional)">
         <label class="cfg-relay">
           <input type="checkbox" id="cfgRelay">
           FORZAR RELAY (ocultar IP — todo el tráfico pasa por TURN)
@@ -702,15 +702,13 @@
           servers.push({ urls: `stun:${host}:${port}` });
         }
 
-        let urls = [turnUrl];
-        if (!turnUrl.includes('transport=')) {
-          urls = [
-            turnUrl,
-            turnUrl + (turnUrl.includes('?') ? '&' : '?') + 'transport=udp',
-            turnUrl + (turnUrl.includes('?') ? '&' : '?') + 'transport=tcp'
-          ];
-        }
-        const turnEntry = { urls };
+        const cleanUrl = turnUrl.split('?')[0];
+        const turnEntry = {
+          urls: [
+            `${cleanUrl}?transport=udp`,
+            cleanUrl
+          ]
+        };
         if (turnUser) turnEntry.username = turnUser;
         if (turnPass) turnEntry.credential = turnPass;
         servers.push(turnEntry);
