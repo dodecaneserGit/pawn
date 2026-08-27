@@ -50,15 +50,15 @@ Chat peer-to-peer encriptado en un único archivo HTML. Comunicación directa en
 6. 🔐 **Chat cifrado activo** — verificad que el fingerprint y los **emojis SAS** coinciden en ambos lados.
 
 ### Redes con NAT Simétrico (4G/5G / Hotspot móvil / Redes corporativas)
-Si estás en una red celular o compartiendo datos desde el móvil:
+Si estás en una red celular o compartiendo datos desde el móvil (donde el proveedor bloquea el paso directo P2P):
 1. Pulsa `[ ⚙ CONFIG RED ]` en la pantalla de inicio.
-2. Introduce la URL de tu servidor TURN y credenciales:
+2. Introduce la URL de tu servidor TURN y credenciales (ejemplo con coturn o servidor propio):
    ```
    URL:      turn:tu-servidor-turn.com:3478
-   Usuario:  pawn
+   Usuario:  tu_usuario
    Password: tu_password
    ```
-3. Opcionalmente marca `FORZAR RELAY` si deseas ocultar tu IP real.
+3. Opcionalmente marca `FORZAR RELAY` si deseas ocultar tu IP real (todo el tráfico viaja cifrado a través del relay).
 4. Ambos contactos deben configurar el mismo TURN antes de iniciar el intercambio.
 
 ---

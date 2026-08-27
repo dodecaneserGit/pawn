@@ -1,0 +1,15 @@
+# Archivos de entorno y credenciales locales
+*.local
+*.secret
+*.env
+turn-test.txt
+turn-credentials.txt
+*-test.txt
+
+# Archivos del sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.bak

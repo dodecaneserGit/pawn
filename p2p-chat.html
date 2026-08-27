@@ -538,16 +538,12 @@
       <span class="dbg-toggle" onclick="toggleDbg()">[ 📋 DEBUG LOGS ]</span>
       <div class="dbg-box" id="dbgBox">--- logs de diagnóstico WebRTC ---</div>
       <div class="cfg-panel" id="cfgPanel">
-        <div style="display:flex;gap:6px;margin-bottom:8px">
-          <button class="btn" style="font-size:10px;padding:4px 8px;flex:1" onclick="loadVpsPreset()">[ ⚡ PRESET VPS PROPIO ]</button>
-          <button class="btn" style="font-size:10px;padding:4px 8px;color:var(--text-dim)" onclick="clearTurnCfg()">[ LIMPIAR ]</button>
-        </div>
         <label>TURN SERVER (para redes 4G/5G/corporativas):</label>
-        <input type="text" id="cfgTurnUrl" value="turn:tu-servidor-turn.com:3478" placeholder="turn:servidor:puerto">
+        <input type="text" id="cfgTurnUrl" placeholder="turn:servidor:puerto  (ej: turn:relay.ejemplo.com:3478)">
         <label>USUARIO:</label>
-        <input type="text" id="cfgTurnUser" value="pawn" placeholder="usuario (opcional)">
+        <input type="text" id="cfgTurnUser" placeholder="usuario (opcional)">
         <label>PASSWORD:</label>
-        <input type="password" id="cfgTurnPass" value="tu_password" placeholder="contraseña (opcional)">
+        <input type="password" id="cfgTurnPass" placeholder="contraseña (opcional)">
         <label class="cfg-relay">
           <input type="checkbox" id="cfgRelay">
           FORZAR RELAY (ocultar IP — todo el tráfico pasa por TURN)
@@ -742,21 +738,6 @@
 
     function toggleCfg() {
       $('cfgPanel').classList.toggle('on');
-    }
-
-    function loadVpsPreset() {
-      $('cfgTurnUrl').value = 'turn:tu-servidor-turn.com:3478';
-      $('cfgTurnUser').value = 'pawn';
-      $('cfgTurnPass').value = 'tu_password';
-      toast('Preset VPS cargado');
-    }
-
-    function clearTurnCfg() {
-      $('cfgTurnUrl').value = '';
-      $('cfgTurnUser').value = '';
-      $('cfgTurnPass').value = '';
-      $('cfgRelay').checked = false;
-      toast('Configuración limpiada');
     }
 
     function toggleDbg() {
